@@ -7,6 +7,12 @@ class LudoEngineTest {
     private val red = Seat(LudoColor.RED, PlayerType.HUMAN, "Player")
     private val yellow = Seat(LudoColor.YELLOW, PlayerType.BOT, "Bot")
 
+    @Test fun generatedRollUsesInjectedDiceSourceWithoutSubstitution() {
+        val values = ArrayDeque(listOf(1, 2, 3, 4, 5, 6))
+        val engine = LudoEngine { values.removeFirst() }
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), List(6) { engine.generateRoll() })
+    }
+
     @Test fun sixEntersAndEarnsBonusRoll() {
         val engine = LudoEngine()
         val rolled = engine.commitRoll(engine.newGame(listOf(red, yellow)), 6)

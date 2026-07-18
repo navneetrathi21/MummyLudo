@@ -44,6 +44,8 @@ private val offsets = mapOf(
 fun pairKey(ids: List<String>): String = ids.sorted().joinToString(":")
 
 class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
+    fun generateRoll(): Int = dice().also { require(it in 1..6) }
+
     fun newGame(seats: List<Seat>): GameState {
         require(seats.size in 2..4)
         require(seats.map { it.color }.distinct().size == seats.size)
@@ -56,7 +58,7 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
 
     fun commitRoll(state: GameState, forced: Int? = null): GameState {
         check(state.roll == null && !state.completed)
-        val value = forced ?: dice()
+        val value = forced ?: generateRoll()
         require(value in 1..6)
         val streak = if (value == 6) state.consecutiveSixes + 1 else 0
         if (streak == 3) {

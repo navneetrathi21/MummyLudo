@@ -243,6 +243,7 @@ private fun GameScreen(
 ) {
     var showClose by remember { mutableStateOf(false) }
     var rolling by remember { mutableStateOf(false) }
+    var animatedFace by remember { mutableIntStateOf(1) }
     val scope = rememberCoroutineScope()
     val dieTravel = remember { Animatable(0f) }
     val legal = remember(state) { engine.legalMoves(state) }
@@ -267,12 +268,12 @@ private fun GameScreen(
                         .offset(x = (dieTravel.value * 210).dp, y = (70 + kotlin.math.sin(dieTravel.value * 10) * 45).dp)
                         .size(58.dp)
                         .align(Alignment.TopStart)
-                        .semantics { contentDescription = "Rolling dice" }
+                        .semantics { contentDescription = "Rolling dice, face $animatedFace" }
                         .testTag("game_dice_overlay"),
                     color = Color.White,
                     shape = RoundedCornerShape(15.dp),
                     shadowElevation = 10.dp,
-                ) { Box(contentAlignment = Alignment.Center) { Text("• •\n •\n• •", textAlign = TextAlign.Center, fontSize = 16.sp) } }
+                ) { DiceFace(animatedFace) }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -292,17 +293,24 @@ private fun GameScreen(
         Button(
             onClick = {
                 if (state.roll == null) {
+                    val finalFace = engine.generateRoll()
+                    val committedState = engine.commitRoll(state, finalFace)
                     rolling = true
                     scope.launch {
                         dieTravel.snapTo(0f)
-                        dieTravel.animateTo(1f, tween(850))
+                        val travel = launch { dieTravel.animateTo(1f, tween(850)) }
+                        repeat(9) { frame ->
+                            animatedFace = ((finalFace + frame + 1) % 6) + 1
+                            delay(90)
+                        }
+                        travel.join()
+                        animatedFace = finalFace
                         delay(400)
                         rolling = false
-                        val rolled = engine.commitRoll(state)
-                        if (rolled.roll != null && engine.legalMoves(rolled).size == 1) {
+                        if (committedState.roll != null && engine.legalMoves(committedState).size == 1) {
                             delay(180)
-                            onState(engine.move(rolled, engine.legalMoves(rolled).single()).state)
-                        } else onState(rolled)
+                            onState(engine.move(committedState, engine.legalMoves(committedState).single()).state)
+                        } else onState(committedState)
                     }
                 } else if (legal.size == 1) onState(engine.move(state, legal.single()).state)
             },
@@ -319,6 +327,34 @@ private fun GameScreen(
         confirmButton = { TextButton(onClick = onClose) { Text("Close game") } },
         dismissButton = { TextButton(onClick = { showClose = false }) { Text("Keep playing") } },
     )
+}
+
+@Composable
+private fun DiceFace(value: Int) {
+    val pips = when (value) {
+        1 -> setOf(4)
+        2 -> setOf(0, 8)
+        3 -> setOf(0, 4, 8)
+        4 -> setOf(0, 2, 6, 8)
+        5 -> setOf(0, 2, 4, 6, 8)
+        else -> setOf(0, 2, 3, 5, 6, 8)
+    }
+    Column(
+        Modifier.fillMaxSize().padding(10.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        repeat(3) { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                repeat(3) { column ->
+                    val index = row * 3 + column
+                    Box(
+                        Modifier.size(7.dp).clip(CircleShape)
+                            .background(if (index in pips) Ink else Color.Transparent),
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

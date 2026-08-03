@@ -13,27 +13,32 @@ class LudoEngineTest {
         assertEquals(listOf(1, 2, 3, 4, 5, 6), List(6) { engine.generateRoll() })
     }
 
-    @Test fun sixEntersAndEarnsBonusRoll() {
+    @Test fun sixIsBankedAndPlayerChoosesItsOrderAfterRollingStops() {
         val engine = LudoEngine()
-        val rolled = engine.commitRoll(engine.newGame(listOf(red, yellow)), 6)
-        assertEquals(4, engine.legalMoves(rolled).size)
-        val moved = engine.move(rolled, engine.legalMoves(rolled).first()).state
+        var state = engine.commitRoll(engine.newGame(listOf(red, yellow)), 6)
+        assertEquals(listOf(6), state.diceBank)
+        assertTrue(state.awaitingRoll)
+        state = engine.commitRoll(state, 2)
+        assertEquals(listOf(6, 2), state.diceBank)
+        assertFalse(state.awaitingRoll)
+        val selected = engine.selectDie(state, 0)
+        assertEquals(4, engine.legalMoves(selected).size)
+        val moved = engine.move(selected, engine.legalMoves(selected).first()).state
         assertEquals(0, moved.activeSeat)
-        assertEquals(0, moved.pendingBonus)
-        assertEquals("Bonus roll", moved.message)
+        assertEquals(listOf(2), moved.diceBank)
+        assertEquals("Choose another dice value", moved.message)
     }
 
     @Test fun thirdConsecutiveSixCancelsTurnAndCredits() {
         val engine = LudoEngine()
         var state = engine.newGame(listOf(red, yellow))
-        repeat(2) {
-            state = engine.commitRoll(state, 6)
-            state = engine.move(state, engine.legalMoves(state).first()).state
-        }
+        repeat(2) { state = engine.commitRoll(state, 6) }
         state = engine.commitRoll(state, 6)
         assertEquals(1, state.activeSeat)
         assertNull(state.roll)
         assertEquals(0, state.pendingBonus)
+        assertTrue(state.diceBank.isEmpty())
+        assertEquals("Third six cancelled · turn ended", state.message)
     }
 
     @Test fun shortArrowMovesToHeadAndAddsCredit() {
@@ -43,11 +48,28 @@ class LudoEngineTest {
                 List(3) { Token(LudoColor.RED, it + 1) } +
                 List(4) { Token(LudoColor.YELLOW, it) },
         )
-        val rolled = engine.commitRoll(start, 1)
+        val rolled = engine.selectDie(engine.commitRoll(start, 1), 0)
         val result = engine.move(rolled, engine.legalMoves(rolled).single())
         assertEquals(2, result.state.tokens.first().progress)
         assertTrue(result.arrow)
+        assertEquals(1, result.baseDestination)
+        assertEquals(2, result.finalDestination)
         assertEquals("Bonus roll", result.state.message)
+    }
+
+    @Test fun homeEntryArrowTraversesFromTailToFirstLaneCell() {
+        val engine = LudoEngine()
+        val start = engine.newGame(listOf(red, yellow)).copy(
+            tokens = listOf(Token(LudoColor.RED, 0, 47)) +
+                List(3) { Token(LudoColor.RED, it + 1) } +
+                List(4) { Token(LudoColor.YELLOW, it) },
+        )
+        val selected = engine.selectDie(engine.commitRoll(start, 1), 0)
+        val result = engine.move(selected, engine.legalMoves(selected).single())
+        assertTrue(result.arrow)
+        assertEquals(48, result.baseDestination)
+        assertEquals(52, result.finalDestination)
+        assertEquals(52, result.state.tokens.first().progress)
     }
 
     @Test fun doubleUsesEvenRollAtHalfDistance() {
@@ -55,8 +77,9 @@ class LudoEngineTest {
         val tokens = listOf(Token(LudoColor.RED, 0, 10), Token(LudoColor.RED, 1, 10)) +
             List(2) { Token(LudoColor.RED, it + 2) } + List(4) { Token(LudoColor.YELLOW, it) }
         val start = engine.newGame(listOf(red, yellow)).copy(tokens = tokens, pairs = setOf("R0:R1"))
-        assertTrue(engine.legalMoves(engine.commitRoll(start, 3)).isEmpty())
-        val rolled = engine.commitRoll(start, 4)
+        val odd = engine.selectDie(engine.commitRoll(start, 3), 0)
+        assertTrue(engine.legalMoves(odd).isEmpty())
+        val rolled = engine.selectDie(engine.commitRoll(start, 4), 0)
         val move = engine.legalMoves(rolled).single()
         assertEquals(2, move.routeSteps)
         assertEquals(12, move.destination)
@@ -71,7 +94,7 @@ class LudoEngineTest {
             Token(LudoColor.YELLOW, 0, 38), Token(LudoColor.YELLOW, 1, 38), Token(LudoColor.YELLOW, 2, 38), Token(LudoColor.YELLOW, 3),
         )
         val start = engine.newGame(listOf(red, yellow)).copy(tokens = tokens, pairs = setOf("R0:R1", "Y0:Y1"))
-        val rolled = engine.commitRoll(start, 2)
+        val rolled = engine.selectDie(engine.commitRoll(start, 2), 0)
         val result = engine.move(rolled, engine.legalMoves(rolled).single())
         assertEquals(2, result.captured)
         assertEquals(YARD, result.state.tokens.first { it.id == "Y0" }.progress)

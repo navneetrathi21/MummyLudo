@@ -22,6 +22,8 @@ data class GameState(
     val activeSeat: Int = 0,
     val pendingBonus: Int = 0,
     val consecutiveSixes: Int = 0,
+    val diceBank: List<Int> = emptyList(),
+    val awaitingRoll: Boolean = true,
     val roll: Int? = null,
     val ranking: List<LudoColor> = emptyList(),
     val turn: Int = 1,
@@ -29,7 +31,14 @@ data class GameState(
     val completed: Boolean = false,
 )
 
-data class MoveResult(val state: GameState, val captured: Int, val arrow: Boolean)
+data class MoveResult(
+    val state: GameState,
+    val captured: Int,
+    val arrow: Boolean,
+    val baseDestination: Int,
+    val finalDestination: Int,
+    val movedTokenIds: List<String>,
+)
 
 const val YARD = -1
 const val FINISHED = 57
@@ -57,7 +66,7 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
     }
 
     fun commitRoll(state: GameState, forced: Int? = null): GameState {
-        check(state.roll == null && !state.completed)
+        check(state.roll == null && state.awaitingRoll && !state.completed)
         val value = forced ?: generateRoll()
         require(value in 1..6)
         val streak = if (value == 6) state.consecutiveSixes + 1 else 0
@@ -65,14 +74,29 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
             return advance(state.copy(
                 consecutiveSixes = 0,
                 pendingBonus = 0,
-                message = "Third six cancelled",
-            ))
+                diceBank = emptyList(),
+                awaitingRoll = false,
+            )).copy(message = "Third six cancelled · turn ended")
         }
-        val bonus = state.pendingBonus + if (value == 6) 1 else 0
-        val rolled = state.copy(roll = value, consecutiveSixes = streak, pendingBonus = bonus)
-        val moves = legalMoves(rolled)
-        return if (moves.isEmpty()) finishRoll(rolled.copy(message = "No legal move"))
-        else rolled.copy(message = if (moves.size == 1) "One legal move" else "Choose a token")
+        val bank = state.diceBank + value
+        return state.copy(
+            diceBank = bank,
+            consecutiveSixes = streak,
+            awaitingRoll = value == 6,
+            message = if (value == 6) "Six rolled · roll again" else "Choose a dice value",
+        )
+    }
+
+    fun selectDie(state: GameState, bankIndex: Int): GameState {
+        check(!state.awaitingRoll && state.roll == null && bankIndex in state.diceBank.indices)
+        val value = state.diceBank[bankIndex]
+        val selected = state.copy(
+            roll = value,
+            diceBank = state.diceBank.toMutableList().also { it.removeAt(bankIndex) },
+            message = "Choose a token for $value",
+        )
+        return if (legalMoves(selected).isEmpty()) finishMove(selected.copy(message = "No legal move for $value"))
+        else selected
     }
 
     fun legalMoves(state: GameState): List<UnitMove> {
@@ -115,12 +139,10 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         require(move in legalMoves(state)) { "Illegal move: $move" }
         val moving = state.tokens.filter { it.id in move.tokenIds }
         val color = moving.first().color
-        var destination = move.destination
-        var arrow = false
-        if (destination == 1 || destination == 4) {
-            destination += 1
-            arrow = true
-        }
+        val baseDestination = move.destination
+        val arrowDestination = arrowHead(baseDestination)
+        val destination = arrowDestination ?: baseDestination
+        val arrow = arrowDestination != null
         val movedTokens = state.tokens.map { token ->
             if (token.id in move.tokenIds) token.copy(progress = destination) else token
         }
@@ -158,8 +180,8 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
             },
         )
         next = updateRanking(next)
-        next = finishRoll(next)
-        return MoveResult(next, capturedIds.size, arrow)
+        next = finishMove(next)
+        return MoveResult(next, capturedIds.size, arrow, baseDestination, destination, move.tokenIds)
     }
 
     fun chooseBest(state: GameState): UnitMove = legalMoves(state).maxWith(
@@ -182,10 +204,17 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
 
     fun autoStep(state: GameState, forcedRoll: Int? = null): GameState {
         if (state.completed) return state
-        val rolled = commitRoll(state, forcedRoll)
-        if (rolled.roll == null) return rolled
-        val moves = legalMoves(rolled)
-        return if (moves.isEmpty()) rolled else move(rolled, chooseBest(rolled)).state
+        if (state.awaitingRoll) return commitRoll(state, forcedRoll)
+        if (state.roll == null && state.diceBank.isNotEmpty()) {
+            val bestSelection = state.diceBank.indices.map { index -> index to selectDie(state, index) }
+                .maxBy { (_, selected) ->
+                    val moves = legalMoves(selected)
+                    if (moves.isEmpty()) Int.MIN_VALUE else scoreMove(selected, chooseBest(selected))
+                }
+            val selected = bestSelection.second
+            return if (selected.roll == null) selected else move(selected, chooseBest(selected)).state
+        }
+        return state
     }
 
     fun simulate(initial: GameState, seed: Int, maxTurns: Int = 50_000): GameState {
@@ -239,21 +268,59 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         return state.copy(ranking = ranking, completed = ranking.size == state.seats.size)
     }
 
-    private fun finishRoll(state: GameState): GameState {
-        if (state.completed) return state.copy(roll = null, message = "${state.ranking.first().label} wins!")
+    private fun finishMove(state: GameState): GameState {
+        if (state.completed) return state.copy(roll = null, diceBank = emptyList(), message = "${state.ranking.first().label} wins!")
+        if (state.diceBank.isNotEmpty()) return state.copy(
+            roll = null,
+            awaitingRoll = false,
+            message = "Choose another dice value",
+        )
         return if (state.pendingBonus > 0) state.copy(
             roll = null,
+            awaitingRoll = true,
             pendingBonus = state.pendingBonus - 1,
+            consecutiveSixes = 0,
             message = "Bonus roll",
-        ) else advance(state.copy(roll = null))
+        ) else advance(state.copy(roll = null, awaitingRoll = false))
     }
 
     private fun advance(state: GameState): GameState {
         var next = state.activeSeat
         do next = (next + 1) % state.seats.size
         while (state.seats[next].color in state.ranking)
-        return state.copy(activeSeat = next, turn = state.turn + 1, message = "Roll the dice")
+        return state.copy(
+            activeSeat = next,
+            turn = state.turn + 1,
+            diceBank = emptyList(),
+            roll = null,
+            awaitingRoll = true,
+            consecutiveSixes = 0,
+            message = "Roll the dice",
+        )
     }
+
+    private fun scoreMove(state: GameState, move: UnitMove): Int {
+        val color = state.seats[state.activeSeat].color
+        val global = globalTrack(color, if (move.destination <= 51) move.destination else -1)
+        val opponents = state.tokens.count { token ->
+            token.color != color && token.progress in 0..51 && globalTrack(token.color, token.progress) == global
+        }
+        return when {
+            move.destination == FINISHED -> 10_000
+            opponents > 0 -> 8_000 + opponents
+            move.destination > 51 -> 5_000 + move.destination
+            isProtected(color, move.destination) -> 3_000
+            move.enters -> 2_000
+            else -> move.destination
+        }
+    }
+}
+
+fun arrowHead(progress: Int): Int? = when (progress) {
+    1 -> 2
+    4 -> 5
+    48 -> 52
+    else -> null
 }
 
 fun globalTrack(color: LudoColor, progress: Int): Int = if (progress in 0..51) {

@@ -37,7 +37,17 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MummyLudoTheme { MummyLudoApp() } }
+        val qaValues = if (BuildConfig.DEBUG) {
+            intent.getStringExtra("qaDiceSequence")
+                ?.split(',')
+                ?.mapNotNull(String::toIntOrNull)
+                ?.filter { it in 1..6 }
+                ?.let(::ArrayDeque)
+        } else null
+        val engine = qaValues?.let { values ->
+            LudoEngine { values.removeFirstOrNull() ?: kotlin.random.Random.nextInt(1, 7) }
+        }
+        setContent { MummyLudoTheme { MummyLudoApp(engine) } }
     }
 }
 
@@ -66,14 +76,14 @@ private fun MummyLudoTheme(content: @Composable () -> Unit) {
 private enum class Page { HOME, SETUP, GAME, RESULTS, RULES }
 
 @Composable
-fun MummyLudoApp() {
+fun MummyLudoApp(providedEngine: LudoEngine? = null) {
     var page by remember { mutableStateOf(Page.HOME) }
     var humanCount by remember { mutableIntStateOf(1) }
     var botCount by remember { mutableIntStateOf(1) }
     var reverseDuel by remember { mutableStateOf(false) }
     var game by remember { mutableStateOf<GameState?>(null) }
     var simulationSeed by remember { mutableIntStateOf(1001) }
-    val engine = remember { LudoEngine() }
+    val engine = providedEngine ?: remember { LudoEngine() }
 
     Surface(Modifier.fillMaxSize(), color = Cream) {
         when (page) {
@@ -243,13 +253,83 @@ private fun GameScreen(
 ) {
     var showClose by remember { mutableStateOf(false) }
     var rolling by remember { mutableStateOf(false) }
+    var moving by remember { mutableStateOf(false) }
     var animatedFace by remember { mutableIntStateOf(1) }
+    var visualProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     val scope = rememberCoroutineScope()
     val dieTravel = remember { Animatable(0f) }
     val legal = remember(state) { engine.legalMoves(state) }
     val seat = state.seats[state.activeSeat]
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp)) {
+    suspend fun animateRoll() {
+        if (!state.awaitingRoll || rolling || moving) return
+        val finalFace = engine.generateRoll()
+        val committedState = engine.commitRoll(state, finalFace)
+        rolling = true
+        dieTravel.snapTo(0f)
+        val travel = scope.launch { dieTravel.animateTo(1f, tween(850)) }
+        repeat(9) { frame ->
+            animatedFace = ((finalFace + frame + 1) % 6) + 1
+            delay(90)
+        }
+        travel.join()
+        animatedFace = finalFace
+        delay(450)
+        rolling = false
+        onState(committedState)
+    }
+
+    suspend fun animateMove(moveState: GameState, move: UnitMove) {
+        if (moving || rolling) return
+        moving = true
+        val result = engine.move(moveState, move)
+        val start = moveState.tokens.first { it.id in move.tokenIds }.progress
+        val route = when {
+            move.enters -> listOf(0)
+            result.baseDestination > start -> (start + 1..result.baseDestination).toList()
+            else -> emptyList()
+        }
+        route.forEach { progress ->
+            visualProgress = move.tokenIds.associateWith { progress }
+            delay(190)
+        }
+        if (result.arrow) {
+            delay(180)
+            (result.baseDestination + 1..result.finalDestination).forEach { progress ->
+                visualProgress = move.tokenIds.associateWith { progress }
+                delay(165)
+            }
+        }
+        delay(100)
+        onState(result.state)
+        visualProgress = emptyMap()
+        moving = false
+    }
+
+    LaunchedEffect(state) {
+        if (state.completed || seat.type != PlayerType.BOT || rolling || moving) return@LaunchedEffect
+        delay(700)
+        when {
+            state.awaitingRoll -> animateRoll()
+            state.roll == null && state.diceBank.isNotEmpty() -> {
+                val candidates = state.diceBank.indices.map { index -> index to engine.selectDie(state, index) }
+                val selected = candidates
+                    .filter { engine.legalMoves(it.second).isNotEmpty() }
+                    .maxByOrNull { state.diceBank[it.first] }
+                    ?: candidates.first()
+                onState(selected.second)
+            }
+            state.roll != null -> {
+                val moves = engine.legalMoves(state)
+                if (moves.isNotEmpty()) {
+                    delay(650)
+                    animateMove(state, engine.chooseBest(state))
+                }
+            }
+        }
+    }
+
+    Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp, vertical = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("${seat.name} · ${seat.color.label}", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
@@ -259,9 +339,16 @@ private fun GameScreen(
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
-            LudoBoard(state = state, legalIds = legal.flatMap { it.tokenIds }.toSet(), onToken = { id ->
-                if (!rolling) legal.firstOrNull { id in it.tokenIds }?.let { onState(engine.move(state, it).state) }
-            })
+            LudoBoard(
+                state = state,
+                visualProgress = visualProgress,
+                legalIds = if (seat.type == PlayerType.HUMAN && !moving) legal.flatMap { it.tokenIds }.toSet() else emptySet(),
+                onToken = { id ->
+                    if (!rolling && !moving && seat.type == PlayerType.HUMAN) {
+                        legal.firstOrNull { id in it.tokenIds }?.let { move -> scope.launch { animateMove(state, move) } }
+                    }
+                },
+            )
             if (rolling) {
                 Surface(
                     modifier = Modifier
@@ -283,41 +370,59 @@ private fun GameScreen(
                 Text("${s.color.label.first()} $finished/4", color = colorOf(s.color), fontWeight = FontWeight.SemiBold)
             }
         }
-        Spacer(Modifier.weight(1f))
-        if (BuildConfig.DEBUG) {
-            TextButton(
-                onClick = onAutoPlay,
-                modifier = Modifier.align(Alignment.CenterHorizontally).testTag("game_auto_play"),
-            ) { Text("Finish game automatically") }
-        }
-        Button(
-            onClick = {
-                if (state.roll == null) {
-                    val finalFace = engine.generateRoll()
-                    val committedState = engine.commitRoll(state, finalFace)
-                    rolling = true
-                    scope.launch {
-                        dieTravel.snapTo(0f)
-                        val travel = launch { dieTravel.animateTo(1f, tween(850)) }
-                        repeat(9) { frame ->
-                            animatedFace = ((finalFace + frame + 1) % 6) + 1
-                            delay(90)
+        Card(
+            modifier = Modifier.fillMaxWidth().height(286.dp).padding(top = 10.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = .72f)),
+            shape = RoundedCornerShape(22.dp),
+        ) {
+            Column(
+                Modifier.fillMaxSize().padding(14.dp),
+                verticalArrangement = Arrangement.SpaceEvenly,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (state.diceBank.isNotEmpty() || state.roll != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        state.diceBank.forEachIndexed { index, value ->
+                            SmallDice(
+                                value = value,
+                                selected = false,
+                                enabled = seat.type == PlayerType.HUMAN && !state.awaitingRoll && state.roll == null && !moving,
+                                onClick = { onState(engine.selectDie(state, index)) },
+                            )
                         }
-                        travel.join()
-                        animatedFace = finalFace
-                        delay(400)
-                        rolling = false
-                        if (committedState.roll != null && engine.legalMoves(committedState).size == 1) {
-                            delay(180)
-                            onState(engine.move(committedState, engine.legalMoves(committedState).single()).state)
-                        } else onState(committedState)
+                        state.roll?.let { value -> SmallDice(value, selected = true, enabled = false, onClick = {}) }
                     }
-                } else if (legal.size == 1) onState(engine.move(state, legal.single()).state)
-            },
-            enabled = !rolling && (state.roll == null || legal.size == 1),
-            modifier = Modifier.fillMaxWidth().height(58.dp).testTag("game_roll_action"),
-            shape = RoundedCornerShape(18.dp),
-        ) { Text(if (state.roll == null) "Roll dice" else "Choose a token", fontSize = 18.sp) }
+                } else {
+                    Text(if (seat.type == PlayerType.BOT) "Bot is preparing to roll" else "Roll to begin", color = Ink.copy(.58f))
+                }
+
+                if (BuildConfig.DEBUG) {
+                    TextButton(onClick = onAutoPlay, enabled = !rolling && !moving, modifier = Modifier.testTag("game_auto_play")) {
+                        Text("Finish game automatically")
+                    }
+                }
+
+                Button(
+                    onClick = { scope.launch { animateRoll() } },
+                    enabled = seat.type == PlayerType.HUMAN && state.awaitingRoll && !rolling && !moving,
+                    modifier = Modifier.fillMaxWidth().height(56.dp).testTag("game_roll_action"),
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Text(
+                        when {
+                            rolling -> "Rolling…"
+                            moving -> "Moving…"
+                            seat.type == PlayerType.BOT -> "Bot is playing…"
+                            state.awaitingRoll && state.diceBank.isNotEmpty() -> "Roll again"
+                            state.awaitingRoll -> "Roll dice"
+                            state.roll == null -> "Choose a dice value"
+                            else -> "Choose a token"
+                        },
+                        fontSize = 17.sp,
+                    )
+                }
+            }
+        }
     }
 
     if (showClose) AlertDialog(
@@ -330,7 +435,22 @@ private fun GameScreen(
 }
 
 @Composable
-private fun DiceFace(value: Int) {
+private fun SmallDice(value: Int, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .size(52.dp)
+            .semantics { contentDescription = "Dice value $value${if (selected) ", selected" else ""}" }
+            .testTag("dice_value_$value")
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) Sage else Color.White,
+        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, Ink.copy(.14f)),
+        shadowElevation = if (selected) 0.dp else 2.dp,
+    ) { DiceFace(value, if (selected) Color.White else Ink) }
+}
+
+@Composable
+private fun DiceFace(value: Int, pipColor: Color = Ink) {
     val pips = when (value) {
         1 -> setOf(4)
         2 -> setOf(0, 8)
@@ -349,7 +469,7 @@ private fun DiceFace(value: Int) {
                     val index = row * 3 + column
                     Box(
                         Modifier.size(7.dp).clip(CircleShape)
-                            .background(if (index in pips) Ink else Color.Transparent),
+                            .background(if (index in pips) pipColor else Color.Transparent),
                     )
                 }
             }
@@ -358,44 +478,65 @@ private fun DiceFace(value: Int) {
 }
 
 @Composable
-private fun LudoBoard(state: GameState, legalIds: Set<String>, onToken: (String) -> Unit) {
-    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(Color.White).testTag("ludo_board")) {
+private fun LudoBoard(
+    state: GameState,
+    visualProgress: Map<String, Int>,
+    legalIds: Set<String>,
+    onToken: (String) -> Unit,
+) {
+    BoxWithConstraints(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(Color.White).testTag("ludo_board")) {
+        val cellDp = maxWidth / 15
         Canvas(Modifier.fillMaxSize()) { drawBoard() }
-        state.tokens.filter { it.progress != FINISHED }.forEach { token ->
-            val location = tokenLocation(token)
-            val yardOffset = if (token.progress == YARD) yardTokenLocation(token) else location
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .wrapContentSize(Alignment.TopStart)
-                    .offset(x = (yardOffset.first * 100 / 15).dp, y = (yardOffset.second * 100 / 15).dp)
-            )
-        }
-        // Tokens are rendered in Canvas too; transparent semantics provide reliable targets.
         Canvas(Modifier.fillMaxSize()) {
             val cell = size.width / 15f
-            state.tokens.filter { it.progress != FINISHED }.forEach { token ->
-                val (cx, cy) = if (token.progress == YARD) yardTokenLocation(token) else tokenLocation(token)
-                val center = Offset((cx + .5f) * cell, (cy + .5f) * cell)
-                if (token.id in legalIds) drawCircle(Sage.copy(alpha = .25f), cell * .45f, center)
-                drawCircle(Color.White, cell * .34f, center)
-                drawCircle(colorOf(token.color), cell * .28f, center)
-                drawCircle(Color.White.copy(alpha = .75f), cell * .08f, center - Offset(cell * .07f, cell * .07f))
+            val shownTokens = state.tokens.filter { it.progress != FINISHED }.map { token ->
+                token.copy(progress = visualProgress[token.id] ?: token.progress)
+            }
+            shownTokens.forEach { shown ->
+                val (cx, cy) = if (shown.progress == YARD) yardTokenLocation(shown) else tokenLocation(shown)
+                val siblings = if (shown.progress == YARD) listOf(shown) else shownTokens.filter {
+                    it.color == shown.color && it.progress == shown.progress
+                }
+                val slot = siblings.sortedBy { it.index }.indexOfFirst { it.id == shown.id }
+                val spread = when (siblings.size) {
+                    1 -> Offset.Zero
+                    2 -> listOf(Offset(-.17f, 0f), Offset(.17f, 0f))[slot]
+                    3 -> listOf(Offset(-.17f, .13f), Offset(.17f, .13f), Offset(0f, -.16f))[slot]
+                    else -> listOf(Offset(-.16f, -.14f), Offset(.16f, -.14f), Offset(-.16f, .16f), Offset(.16f, .16f))[slot.coerceAtMost(3)]
+                }
+                val center = Offset((cx + .5f + spread.x) * cell, (cy + .5f + spread.y) * cell)
+                if (shown.id in legalIds) drawCircle(Sage.copy(alpha = .25f), cell * .45f, Offset((cx + .5f) * cell, (cy + .5f) * cell))
+                drawPawn(center, cell, colorOf(shown.color), if (siblings.size == 1) 1f else .72f)
             }
         }
         state.tokens.filter { it.id in legalIds }.forEach { token ->
             val (cx, cy) = if (token.progress == YARD) yardTokenLocation(token) else tokenLocation(token)
             Box(
                 Modifier
-                    .fillMaxSize()
-                    .padding(start = (cx * 100 / 15).dp, top = (cy * 100 / 15).dp)
-                    .size(28.dp)
+                    .offset(x = cellDp * cx, y = cellDp * cy)
+                    .size(cellDp)
                     .clickable { onToken(token.id) }
                     .semantics { contentDescription = "${token.color.label} token ${token.index + 1}" }
                     .testTag("token_${token.color.name.lowercase()}_${token.index}"),
             )
         }
     }
+}
+
+private fun DrawScope.drawPawn(center: Offset, cell: Float, color: Color, scale: Float) {
+    drawOval(
+        color = Ink.copy(alpha = .16f),
+        topLeft = center + Offset(-cell * .24f * scale, cell * .06f * scale),
+        size = androidx.compose.ui.geometry.Size(cell * .48f * scale, cell * .30f * scale),
+    )
+    drawOval(
+        color = color,
+        topLeft = center + Offset(-cell * .22f * scale, cell * .01f * scale),
+        size = androidx.compose.ui.geometry.Size(cell * .44f * scale, cell * .29f * scale),
+    )
+    drawCircle(Color.White, cell * .23f * scale, center - Offset(0f, cell * .13f * scale))
+    drawCircle(color, cell * .19f * scale, center - Offset(0f, cell * .13f * scale))
+    drawCircle(Color.White.copy(alpha = .75f), cell * .055f * scale, center - Offset(cell * .065f * scale, cell * .19f * scale))
 }
 
 private val track = listOf(
@@ -472,6 +613,22 @@ private fun DrawScope.drawBoard() {
             drawLine(colorOf(color).copy(.65f), p2, p2-d*.23f-n*.18f, c*.07f)
         }
     }
+    // The long home-entry arrow follows every route cell from the post-safe tail into the lane.
+    LudoColor.entries.forEach { color ->
+        val points = (48..52).map { progress ->
+            val (x, y) = tokenLocation(Token(color, 0, progress))
+            Offset((x + .5f) * c, (y + .5f) * c)
+        }
+        points.zipWithNext().forEach { (start, end) ->
+            drawLine(colorOf(color).copy(.28f), start, end, c * .032f)
+        }
+        val end = points.last()
+        val previous = points[points.lastIndex - 1]
+        val d = end - previous
+        val n = Offset(-d.y, d.x)
+        drawLine(colorOf(color).copy(.32f), end, end - d * .16f + n * .09f, c * .032f)
+        drawLine(colorOf(color).copy(.32f), end, end - d * .16f - n * .09f, c * .032f)
+    }
 }
 
 private fun colorOf(color: LudoColor): Color = when (color) {
@@ -507,7 +664,7 @@ private fun RulesScreen(onBack: () -> Unit) {
         Text("How to play", fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(18.dp))
         val rules = listOf(
-            "Roll a 6 to enter a token. Every 6 earns another roll; the third 6 in a row is cancelled.",
+            "Roll a 6 to enter a token. Sixes stay in your dice bank while you roll again; a third 6 in a row cancels that turn.",
             "Land on an arrow tail to move to its head and earn an extra roll.",
             "Capturing earns one extra roll. An arrow capture therefore earns two.",
             "Two same-color tokens can move as a double on even rolls, travelling half the die value.",

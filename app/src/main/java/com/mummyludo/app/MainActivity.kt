@@ -2,8 +2,10 @@ package com.mummyludo.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -16,14 +18,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -31,12 +36,34 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mummyludo.app.game.*
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.InstallStateUpdatedListener
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallStatus
+import com.google.android.play.core.install.model.UpdateAvailability
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    private lateinit var appUpdateManager: AppUpdateManager
+    private var updateReadyToInstall by mutableStateOf(false)
+    private val updateLauncher = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+        // If the user cancels the Play update flow, gameplay continues normally.
+    }
+    private val updateListener = InstallStateUpdatedListener { state ->
+        if (state.installStatus() == InstallStatus.DOWNLOADED) {
+            updateReadyToInstall = true
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appUpdateManager = AppUpdateManagerFactory.create(this)
+        appUpdateManager.registerListener(updateListener)
         val qaValues = if (BuildConfig.DEBUG) {
             intent.getStringExtra("qaDiceSequence")
                 ?.split(',')
@@ -47,17 +74,78 @@ class MainActivity : ComponentActivity() {
         val engine = qaValues?.let { values ->
             LudoEngine { values.removeFirstOrNull() ?: kotlin.random.Random.nextInt(1, 7) }
         }
-        setContent { MummyLudoTheme { MummyLudoApp(engine) } }
+        setContent {
+            MummyLudoTheme {
+                Box(Modifier.fillMaxSize()) {
+                    MummyLudoApp(engine)
+                    if (updateReadyToInstall) {
+                        AlertDialog(
+                            onDismissRequest = { },
+                            title = { Text("Update ready") },
+                            text = { Text("A new version has been downloaded from Play Store.") },
+                            confirmButton = {
+                                TextButton(onClick = { appUpdateManager.completeUpdate() }) {
+                                    Text("Restart")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { updateReadyToInstall = false }) {
+                                    Text("Later")
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        checkForPlayStoreUpdate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::appUpdateManager.isInitialized) {
+            checkForDownloadedUpdate()
+        }
+    }
+
+    override fun onDestroy() {
+        if (::appUpdateManager.isInitialized) {
+            appUpdateManager.unregisterListener(updateListener)
+        }
+        super.onDestroy()
+    }
+
+    private fun checkForPlayStoreUpdate() {
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+            if (
+                info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
+                info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+            ) {
+                appUpdateManager.startUpdateFlowForResult(
+                    info,
+                    updateLauncher,
+                    AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build(),
+                )
+            }
+        }
+    }
+
+    private fun checkForDownloadedUpdate() {
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+            if (info.installStatus() == InstallStatus.DOWNLOADED) {
+                updateReadyToInstall = true
+            }
+        }
     }
 }
 
 private val Cream = Color(0xFFF7F3EA)
 private val Ink = Color(0xFF26352F)
 private val Sage = Color(0xFF3E6655)
-private val Red = Color(0xFFE85C5C)
-private val Green = Color(0xFF58A976)
-private val Yellow = Color(0xFFF4CF45)
-private val Blue = Color(0xFF4F83D1)
+private val Red = Color(0xFFEF5B67)
+private val Green = Color(0xFF49B675)
+private val Yellow = Color(0xFFF6CB3D)
+private val Blue = Color(0xFF438FE7)
 
 @Composable
 private fun MummyLudoTheme(content: @Composable () -> Unit) {
@@ -73,16 +161,18 @@ private fun MummyLudoTheme(content: @Composable () -> Unit) {
     )
 }
 
-private enum class Page { HOME, SETUP, GAME, RESULTS, RULES }
+private enum class Page { HOME, SETUP, GAME, RULES }
 
 @Composable
 fun MummyLudoApp(providedEngine: LudoEngine? = null) {
+    val appScope = rememberCoroutineScope()
     var page by remember { mutableStateOf(Page.HOME) }
     var humanCount by remember { mutableIntStateOf(1) }
     var botCount by remember { mutableIntStateOf(1) }
     var reverseDuel by remember { mutableStateOf(false) }
     var game by remember { mutableStateOf<GameState?>(null) }
     var simulationSeed by remember { mutableIntStateOf(1001) }
+    var autoPlayRunning by remember { mutableStateOf(false) }
     val engine = providedEngine ?: remember { LudoEngine() }
 
     Surface(Modifier.fillMaxSize(), color = Cream) {
@@ -116,18 +206,27 @@ fun MummyLudoApp(providedEngine: LudoEngine? = null) {
                 engine = engine,
                 onState = { updated ->
                     game = updated
-                    if (updated.completed) page = Page.RESULTS
                 },
                 onAutoPlay = {
-                    game = engine.simulate(game!!, simulationSeed++)
-                    page = Page.RESULTS
+                    if (!autoPlayRunning) {
+                        autoPlayRunning = true
+                        val snapshot = game!!
+                        val seed = simulationSeed++
+                        appScope.launch {
+                            val completed = withContext(Dispatchers.Default) {
+                                runCatching { engine.simulate(snapshot, seed) }
+                            }
+                            completed.onSuccess {
+                                game = it
+                            }.onFailure {
+                                game = snapshot.copy(message = "Could not finish automatically")
+                            }
+                            autoPlayRunning = false
+                        }
+                    }
                 },
+                autoPlayRunning = autoPlayRunning,
                 onClose = { game = null; page = Page.HOME },
-            )
-            Page.RESULTS -> ResultScreen(
-                state = game!!,
-                onAgain = { page = Page.SETUP },
-                onHome = { game = null; page = Page.HOME },
             )
             Page.RULES -> RulesScreen { page = Page.HOME }
         }
@@ -249,6 +348,7 @@ private fun GameScreen(
     engine: LudoEngine,
     onState: (GameState) -> Unit,
     onAutoPlay: () -> Unit,
+    autoPlayRunning: Boolean,
     onClose: () -> Unit,
 ) {
     var showClose by remember { mutableStateOf(false) }
@@ -256,15 +356,27 @@ private fun GameScreen(
     var moving by remember { mutableStateOf(false) }
     var animatedFace by remember { mutableIntStateOf(1) }
     var visualProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var dicePath by remember { mutableStateOf(DiceRollPath()) }
     val scope = rememberCoroutineScope()
     val dieTravel = remember { Animatable(0f) }
+    val confettiProgress = remember { Animatable(0f) }
     val legal = remember(state) { engine.legalMoves(state) }
     val seat = state.seats[state.activeSeat]
+
+    LaunchedEffect(state.completed) {
+        if (state.completed) {
+            while (true) {
+                confettiProgress.snapTo(0f)
+                confettiProgress.animateTo(1f, tween(2600, easing = LinearEasing))
+            }
+        }
+    }
 
     suspend fun animateRoll() {
         if (!state.awaitingRoll || rolling || moving) return
         val finalFace = engine.generateRoll()
         val committedState = engine.commitRoll(state, finalFace)
+        dicePath = DiceRollPath.random()
         rolling = true
         dieTravel.snapTo(0f)
         val travel = scope.launch { dieTravel.animateTo(1f, tween(850)) }
@@ -276,7 +388,7 @@ private fun GameScreen(
         animatedFace = finalFace
         delay(450)
         rolling = false
-        onState(committedState)
+        onState(engine.selectOnlyDie(committedState))
     }
 
     suspend fun animateMove(moveState: GameState, move: UnitMove) {
@@ -284,26 +396,21 @@ private fun GameScreen(
         moving = true
         val result = engine.move(moveState, move)
         val start = moveState.tokens.first { it.id in move.tokenIds }.progress
-        val route = when {
-            move.enters -> listOf(0)
-            result.baseDestination > start -> (start + 1..result.baseDestination).toList()
-            else -> emptyList()
-        }
+        val route = movementAnimationProgresses(
+            start = start,
+            baseDestination = result.baseDestination,
+            finalDestination = result.finalDestination,
+            enters = move.enters,
+            arrow = result.arrow,
+        )
         route.forEach { progress ->
             visualProgress = move.tokenIds.associateWith { progress }
             delay(190)
         }
-        if (result.arrow) {
-            delay(180)
-            (result.baseDestination + 1..result.finalDestination).forEach { progress ->
-                visualProgress = move.tokenIds.associateWith { progress }
-                delay(165)
-            }
-        }
         delay(100)
-        onState(result.state)
         visualProgress = emptyMap()
         moving = false
+        onState(result.state)
     }
 
     LaunchedEffect(state) {
@@ -339,6 +446,7 @@ private fun GameScreen(
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+            val density = LocalDensity.current
             LudoBoard(
                 state = state,
                 visualProgress = visualProgress,
@@ -352,7 +460,11 @@ private fun GameScreen(
             if (rolling) {
                 Surface(
                     modifier = Modifier
-                        .offset(x = (dieTravel.value * 210).dp, y = (70 + kotlin.math.sin(dieTravel.value * 10) * 45).dp)
+                        .graphicsLayer {
+                            translationX = with(density) { dicePath.x(dieTravel.value).dp.toPx() }
+                            translationY = with(density) { dicePath.y(dieTravel.value).dp.toPx() }
+                            rotationZ = dicePath.rotation(dieTravel.value)
+                        }
                         .size(58.dp)
                         .align(Alignment.TopStart)
                         .semantics { contentDescription = "Rolling dice, face $animatedFace" }
@@ -361,6 +473,9 @@ private fun GameScreen(
                     shape = RoundedCornerShape(15.dp),
                     shadowElevation = 10.dp,
                 ) { DiceFace(animatedFace) }
+            }
+            if (state.completed) {
+                ConfettiOverlay(confettiProgress.value)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -380,7 +495,9 @@ private fun GameScreen(
                 verticalArrangement = Arrangement.SpaceEvenly,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (state.diceBank.isNotEmpty() || state.roll != null) {
+                if (state.completed) {
+                    Text("${state.ranking.first().label} wins!", fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = colorOf(state.ranking.first()))
+                } else if (state.diceBank.isNotEmpty() || state.roll != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         state.diceBank.forEachIndexed { index, value ->
                             SmallDice(
@@ -397,19 +514,23 @@ private fun GameScreen(
                 }
 
                 if (BuildConfig.DEBUG) {
-                    TextButton(onClick = onAutoPlay, enabled = !rolling && !moving, modifier = Modifier.testTag("game_auto_play")) {
-                        Text("Finish game automatically")
+                    TextButton(onClick = onAutoPlay, enabled = !state.completed && !rolling && !moving && !autoPlayRunning, modifier = Modifier.testTag("game_auto_play")) {
+                        Text(if (autoPlayRunning) "Finishing…" else "Finish game automatically")
                     }
                 }
 
                 Button(
-                    onClick = { scope.launch { animateRoll() } },
-                    enabled = seat.type == PlayerType.HUMAN && state.awaitingRoll && !rolling && !moving,
+                    onClick = {
+                        if (state.completed) onClose()
+                        else scope.launch { animateRoll() }
+                    },
+                    enabled = state.completed || (seat.type == PlayerType.HUMAN && state.awaitingRoll && !rolling && !moving),
                     modifier = Modifier.fillMaxWidth().height(56.dp).testTag("game_roll_action"),
                     shape = RoundedCornerShape(18.dp),
                 ) {
                     Text(
                         when {
+                            state.completed -> "Close game"
                             rolling -> "Rolling…"
                             moving -> "Moving…"
                             seat.type == PlayerType.BOT -> "Bot is playing…"
@@ -432,6 +553,34 @@ private fun GameScreen(
         confirmButton = { TextButton(onClick = onClose) { Text("Close game") } },
         dismissButton = { TextButton(onClick = { showClose = false }) { Text("Keep playing") } },
     )
+}
+
+@Composable
+private fun ConfettiOverlay(progress: Float) {
+    Canvas(
+        Modifier
+            .fillMaxSize()
+            .semantics { contentDescription = "Confetti celebration" }
+            .testTag("game_confetti"),
+    ) {
+        val colors = listOf(Red, Green, Yellow, Blue, Sage)
+        repeat(70) { index ->
+            val lane = ((index * 37) % 100) / 100f
+            val speed = .65f + ((index * 17) % 40) / 100f
+            val fall = (progress * speed + ((index * 11) % 100) / 100f) % 1f
+            val sway = kotlin.math.sin((progress * 6f + index) * Math.PI.toFloat()) * size.width * .045f
+            val x = lane * size.width + sway
+            val y = fall * (size.height + 70f) - 35f
+            val piece = 5f + (index % 4) * 2f
+            rotate(degrees = progress * 540f + index * 19f, pivot = Offset(x, y)) {
+                drawRect(
+                    color = colors[index % colors.size].copy(alpha = (1f - progress * .25f).coerceIn(.65f, 1f)),
+                    topLeft = Offset(x - piece, y - piece * .45f),
+                    size = Size(piece * 2f, piece * .9f),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -484,7 +633,7 @@ private fun LudoBoard(
     legalIds: Set<String>,
     onToken: (String) -> Unit,
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(Color.White).testTag("ludo_board")) {
+    BoxWithConstraints(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(Color.White).testTag("ludo_board")) {
         val cellDp = maxWidth / 15
         Canvas(Modifier.fillMaxSize()) { drawBoard() }
         Canvas(Modifier.fillMaxSize()) {
@@ -562,7 +711,9 @@ private fun tokenLocation(token: Token): Pair<Float, Float> {
 }
 
 private fun yardTokenLocation(token: Token): Pair<Float, Float> {
-    val spots = listOf(2f to 2f, 4f to 2f, 2f to 4f, 4f to 4f)
+    // The approved inset home occupies 1.1..4.9 cells. These values place the
+    // pawn centers at 2.2/3.8 after LudoBoard adds the standard half-cell offset.
+    val spots = listOf(1.7f to 1.7f, 3.3f to 1.7f, 1.7f to 3.3f, 3.3f to 3.3f)
     val (x, y) = spots[token.index]
     return when (token.color) {
         LudoColor.RED -> x to y
@@ -575,19 +726,54 @@ private fun yardTokenLocation(token: Token): Pair<Float, Float> {
 private fun DrawScope.drawBoard() {
     val c = size.width / 15f
     fun rect(x: Int, y: Int, w: Int, h: Int, color: Color) = drawRect(color, Offset(x * c, y * c), androidx.compose.ui.geometry.Size(w * c, h * c))
-    rect(0, 0, 6, 6, Red.copy(.92f)); rect(9, 0, 6, 6, Green.copy(.92f))
-    rect(9, 9, 6, 6, Yellow.copy(.95f)); rect(0, 9, 6, 6, Blue.copy(.92f))
-    listOf(0 to 0, 9 to 0, 9 to 9, 0 to 9).forEach { (x, y) ->
-        drawRoundRect(Color.White.copy(.88f), Offset((x + 1.1f) * c, (y + 1.1f) * c), androidx.compose.ui.geometry.Size(3.8f * c, 3.8f * c), CornerRadius(c * .45f))
+    val yardColors = listOf(
+        Color(0xFFF1727C), Color(0xFF63C086), Color(0xFFF7D04A), Color(0xFF5D9CE0),
+    )
+    rect(0, 0, 6, 6, yardColors[0]); rect(9, 0, 6, 6, yardColors[1])
+    rect(9, 9, 6, 6, yardColors[2]); rect(0, 9, 6, 6, yardColors[3])
+    listOf(0 to 0, 9 to 0, 9 to 9, 0 to 9).forEachIndexed { index, (x, y) ->
+        drawRoundRect(
+            Color.White,
+            Offset((x + 1.1f) * c, (y + 1.1f) * c),
+            androidx.compose.ui.geometry.Size(3.8f * c, 3.8f * c),
+            CornerRadius(c * .62f),
+        )
+        drawRoundRect(
+            yardColors[index].copy(alpha = .24f),
+            Offset((x + 1.1f) * c, (y + 1.1f) * c),
+            androidx.compose.ui.geometry.Size(3.8f * c, 3.8f * c),
+            CornerRadius(c * .62f),
+            style = Stroke(c * .035f),
+        )
+        val localCenters = listOf(2.2f to 2.2f, 3.8f to 2.2f, 2.2f to 3.8f, 3.8f to 3.8f)
+        localCenters.forEach { (localX, localY) ->
+            drawCircle(
+                yardColors[index].copy(alpha = .13f),
+                c * .48f,
+                Offset((x + localX) * c, (y + localY) * c),
+            )
+            drawCircle(
+                yardColors[index].copy(alpha = .32f),
+                c * .48f,
+                Offset((x + localX) * c, (y + localY) * c),
+                style = Stroke(c * .035f),
+            )
+        }
     }
     track.forEach { (x, y) ->
         drawRect(Color.White, Offset(x * c, y * c), androidx.compose.ui.geometry.Size(c, c))
         drawRect(Ink.copy(.13f), Offset(x * c, y * c), androidx.compose.ui.geometry.Size(c, c), style = Stroke(1f))
     }
     for (i in 1..5) {
-        rect(i, 7, 1, 1, Red.copy(.78f)); rect(7, i, 1, 1, Green.copy(.78f))
-        rect(14 - i, 7, 1, 1, Yellow.copy(.88f)); rect(7, 14 - i, 1, 1, Blue.copy(.78f))
+        rect(i, 7, 1, 1, Color(0xFFF7A3AA)); rect(7, i, 1, 1, Color(0xFF9AD9B4))
+        rect(14 - i, 7, 1, 1, Color(0xFFF9DF86)); rect(7, 14 - i, 1, 1, Color(0xFF9BC7F1))
     }
+    listOf(
+        Triple(track[0], Color(0xFFF36E78), Red),
+        Triple(track[13], Color(0xFF79CA9A), Green),
+        Triple(track[26], Color(0xFFF9D966), Yellow),
+        Triple(track[39], Color(0xFF72A8EC), Blue),
+    ).forEach { (cell, fill, _) -> rect(cell.first, cell.second, 1, 1, fill) }
     val center = Offset(7.5f * c, 7.5f * c)
     fun triangle(a: Offset, b: Offset, color: Color) {
         drawPath(Path().apply { moveTo(center.x, center.y); lineTo(a.x, a.y); lineTo(b.x, b.y); close() }, color)
@@ -596,9 +782,20 @@ private fun DrawScope.drawBoard() {
     triangle(Offset(6*c,6*c), Offset(9*c,6*c), Green)
     triangle(Offset(9*c,6*c), Offset(9*c,9*c), Yellow)
     triangle(Offset(6*c,9*c), Offset(9*c,9*c), Blue)
-    listOf(0,8,13,21,26,34,39,47).forEach { idx ->
+    listOf(8, 21, 34, 47).forEach { idx ->
         val (x,y) = track[idx]
-        drawCircle(Ink.copy(.24f), c*.17f, Offset((x+.5f)*c,(y+.5f)*c), style = Stroke(c*.06f))
+        val centerPoint = Offset((x + .5f) * c, (y + .5f) * c)
+        drawCircle(Ink.copy(.08f), c * .34f, centerPoint)
+        val star = Path()
+        repeat(10) { point ->
+            val angle = -Math.PI / 2 + point * Math.PI / 5
+            val radius = if (point % 2 == 0) c * .25f else c * .11f
+            val px = centerPoint.x + kotlin.math.cos(angle).toFloat() * radius
+            val py = centerPoint.y + kotlin.math.sin(angle).toFloat() * radius
+            if (point == 0) star.moveTo(px, py) else star.lineTo(px, py)
+        }
+        star.close()
+        drawPath(star, Ink.copy(alpha = .48f))
     }
     // Thin, restrained direction arrows on the short post-start hops.
     listOf(1 to 2, 4 to 5).forEach { (from, to) ->
@@ -607,27 +804,30 @@ private fun DrawScope.drawBoard() {
             val b = track[(to + listOf(0,13,26,39)[color.ordinal]) % 52]
             val p1 = Offset((a.first+.5f)*c,(a.second+.5f)*c)
             val p2 = Offset((b.first+.5f)*c,(b.second+.5f)*c)
-            drawLine(colorOf(color).copy(.65f), p1, p2, c*.07f)
+            drawLine(Ink.copy(.46f), p1, p2, c*.052f)
             val d = (p2-p1); val n = Offset(-d.y,d.x)
-            drawLine(colorOf(color).copy(.65f), p2, p2-d*.23f+n*.18f, c*.07f)
-            drawLine(colorOf(color).copy(.65f), p2, p2-d*.23f-n*.18f, c*.07f)
+            drawLine(Ink.copy(.46f), p2, p2-d*.23f+n*.14f, c*.052f)
+            drawLine(Ink.copy(.46f), p2, p2-d*.23f-n*.14f, c*.052f)
         }
     }
-    // The long home-entry arrow follows every route cell from the post-safe tail into the lane.
-    LudoColor.entries.forEach { color ->
-        val points = (48..52).map { progress ->
-            val (x, y) = tokenLocation(Token(color, 0, progress))
-            Offset((x + .5f) * c, (y + .5f) * c)
-        }
+    // Exact four-block paths from the approved reference (tail and head included).
+    val homeArrowCells = listOf(
+        listOf(1 to 8, 0 to 8, 0 to 7, 1 to 7),
+        listOf(6 to 1, 6 to 0, 7 to 0, 7 to 1),
+        listOf(13 to 6, 14 to 6, 14 to 7, 13 to 7),
+        listOf(8 to 13, 8 to 14, 7 to 14, 7 to 13),
+    )
+    homeArrowCells.forEach { cells ->
+        val points = cells.map { (x, y) -> Offset((x + .5f) * c, (y + .5f) * c) }
         points.zipWithNext().forEach { (start, end) ->
-            drawLine(colorOf(color).copy(.28f), start, end, c * .032f)
+            drawLine(Ink.copy(.30f), start, end, c * .032f)
         }
         val end = points.last()
         val previous = points[points.lastIndex - 1]
         val d = end - previous
         val n = Offset(-d.y, d.x)
-        drawLine(colorOf(color).copy(.32f), end, end - d * .16f + n * .09f, c * .032f)
-        drawLine(colorOf(color).copy(.32f), end, end - d * .16f - n * .09f, c * .032f)
+        drawLine(Ink.copy(.34f), end, end - d * .16f + n * .09f, c * .032f)
+        drawLine(Ink.copy(.34f), end, end - d * .16f - n * .09f, c * .032f)
     }
 }
 
@@ -664,7 +864,7 @@ private fun RulesScreen(onBack: () -> Unit) {
         Text("How to play", fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(18.dp))
         val rules = listOf(
-            "Roll a 6 to enter a token. Sixes stay in your dice bank while you roll again; a third 6 in a row cancels that turn.",
+            "Roll a 6 to enter a token. Three consecutive 6s are discarded, then the same player rolls again.",
             "Land on an arrow tail to move to its head and earn an extra roll.",
             "Capturing earns one extra roll. An arrow capture therefore earns two.",
             "Two same-color tokens can move as a double on even rolls, travelling half the die value.",

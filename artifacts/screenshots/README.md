@@ -17,5 +17,6 @@ These screenshots were captured from the installed Android 36 debug build. The d
 13. [Bot move completed and control returned](17-bot-move-complete.png)
 14. [Results](18-results.png)
 15. [Two consecutive sixes stored](19-two-sixes-banked.png)
-16. [Third consecutive six cancels the turn](20-third-six-cancelled.png)
+16. [Three consecutive sixes are discarded and the same player rolls again](20-third-six-cancelled.png)
 
+Movement proof: [Red token advances one board cell at a time](token-movement-short.mp4).

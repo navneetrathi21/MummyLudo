@@ -259,10 +259,10 @@ All setup transitions are pure functions so the full configuration matrix can be
 - Create the die only as a transient overlay above the board. It enters from one side, rolls and tumbles across several board regions with visible bounces and rapidly changing faces, then settles near the board center with a soft landing shadow. It must not remain parked at the bottom of the screen.
 - Hold the committed final face over the board for approximately 350–500 ms, then remove the die before enabling token selection or continuing the bot turn. The final face must match the committed result; intermediate faces are presentation-only.
 - After a 6, keep it in a visible dice bank and return the action to **Roll again** without enabling token movement.
-- After the first non-6, disable rolling and let the player select any stored die value. Then emphasize its legal tokens and show **Choose a token**, even when only one move is legal.
+- After the first non-6, disable rolling. If the bank contains exactly one value, select it automatically, emphasize its legal tokens, and show **Choose a token**. If the bank contains multiple values, let the player tap the die value first and then select a legal token.
 - With no legal move for the selected value, consume only that value and return to the remaining dice bank.
 - On a bot turn, the same area is non-interactive and reads only **[Bot name] is rolling…** or **[Bot name] is choosing…**, with no secondary explanation. Bots use the same committed roll, legal-move list, and reducer commands as humans.
-- Each arrow or capture bonus consumes one separate roll after the current dice bank is empty. Bot turns use the same visible bank, roll animation, selection, and movement sequence.
+- Each arrow or capture bonus consumes one separate roll immediately, adding its result to the existing bank before movement choices continue. Bot turns use the same visible bank, roll animation, selection, and movement sequence.
 - In landscape or large-width layouts, move this action area to a compact rail to the right of the square board; its state and order remain unchanged.
 
 ### 6.3 Board rendering layers
@@ -285,6 +285,10 @@ Layer order:
 #### 6.3.1 Approved board visual baseline
 
 The implementation must reproduce the approved modern board rather than substitute a generic Ludo grid:
+
+![Approved Mummy Ludo board](../artifacts/screenshots/03-initial-board.png)
+
+The snapshot above is the checked-in visual source of truth. Regenerate it from the Android app whenever board rendering changes, and review the replacement against the requirements below before accepting it.
 
 - Perfect 15×15 square with rounded outer clipping, restrained dividers, and no heavy dark frame.
 - Red yard: top-left and the opening-order anchor.
@@ -386,12 +390,12 @@ Events drive animation, sound, haptics, logs, and persistence notifications. UI 
 ### 7.4 Turn resolution
 
 1. Commit each die before its animation and append it to the visible dice bank.
-2. A 6 keeps the state in rolling mode. If it is the third consecutive 6, clear the bank and pending credits and advance immediately.
-3. A non-6 ends rolling mode. The participant selects any bank entry; the engine binds that value before generating moves.
+2. A 6 keeps the state in rolling mode. If it is the third consecutive 6, discard those three sixes only, reset the consecutive-six counter, and immediately let the same participant roll again. Preserve earlier non-six bank values and unused arrow/capture credits.
+3. A non-6 ends rolling mode. With one bank entry the engine binds it automatically; with multiple entries the participant selects one before moves are generated.
 4. Generate every legal single and double move for the selected value. A double is legal only for 2, 4, or 6 and moves `die / 2` route steps.
 5. If the list is empty, consume only the selected bank entry and offer the remaining values.
 6. Apply the selected unit's base movement visually and logically one route cell at a time.
-7. If its final base square is an arrow tail, continue cell by cell to the arrow head and add one arrow bonus credit.
+7. If its final base square is a short-arrow tail anywhere on the shared board, continue cell by cell to its head regardless of token color and add one arrow bonus credit. The home-entry arrow applies to the token's own route.
 8. Resolve one capture event at the arrow head or other final destination using the capture matrix; add exactly one capture credit when anything was captured.
 9. On a protected safe destination, split an arriving double into two singles. Future legal-move generation may offer any same-color pair on that safe square as a double again.
 10. Resolve home-lane finishing, including finishing both members of a double together on an exact halved move.
@@ -713,7 +717,7 @@ app/src/androidTest/
 - 6 with a capture earns two bonus credits.
 - Landing on an arrow tail moves the unit to its head and earns one bonus credit.
 - An arrow-head capture earns two credits in total: one for the arrow and one for the capture.
-- Third consecutive 6 clears the complete dice bank and unused credits, shows the cancellation, and advances the turn without movement.
+- Third consecutive 6 removes only those three sixes, preserves earlier non-six values and unused credits, resets the streak, and immediately offers the same participant another roll.
 - Mixed-color protected occupancy and deployment onto an occupied start.
 - A double moves only on 2, 4, or 6 and advances one, two, or three route cells respectively.
 - Singles and doubles may pass through all occupied intermediate cells; no unit creates a blockade.

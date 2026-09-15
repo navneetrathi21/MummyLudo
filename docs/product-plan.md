@@ -105,9 +105,9 @@ Ludo has many household variations, so V1 must display and consistently apply th
 6. Activating an arrow earns one extra roll. If arrival at the arrow head also captures, the arrow and capture grant two extra rolls in total.
 7. Landing on an eligible opponent unit on an unprotected square captures it and returns the captured token or tokens to their yard.
 8. Each capture event earns exactly one extra roll, whether it returns one, two, or four tokens.
-9. Arrow and capture bonus triggers accumulate independently and become additional rolls after the current dice bank is used.
+9. Arrow and capture bonus triggers accumulate independently and are rolled immediately, adding their results to the existing dice bank before movement choices continue.
 10. When a non-6 ends the rolling sequence, the player chooses any stored die value, then chooses a legal token or double for that value. Used values leave the bank one at a time; the player chooses again until it is empty.
-11. A third consecutive 6 cancels the turn: all three sixes and every other unused stored value are cleared, no token moves, and play advances immediately. Moves completed before that three-six sequence remain valid.
+11. A third consecutive 6 cancels only those three sixes. They are removed from the dice bank, no move is awarded for them, and the same participant immediately rolls again. Earlier non-six stored values, unused arrow/capture rolls, and moves already completed remain valid.
 12. Starting squares and star-marked squares are protected. Tokens there cannot be captured; different colors may coexist there; and a yard token may enter its occupied starting square.
 13. Two same-color tokens sharing a square may form one double token. No unit may contain more than two tokens.
 14. A double token can move only on an even die result and travels half the rolled value: 2 moves one square, 4 moves two, and 6 moves three. An odd result cannot move that double.
@@ -120,8 +120,8 @@ Ludo has many household variations, so V1 must display and consistently apply th
 21. After completing the shared track, a single or double enters only its own colored home lane.
 22. Each colored home lane has five playable blocks. An exact landing on the fifth block finishes the participating token or pair and moves it into the center as a completion animation, not an additional playable step.
 23. A move that would pass beyond the fifth home-lane block is illegal.
-24. Finishing does not itself grant an extra roll; extra rolls come only from a 6, an activated arrow, or a capture.
-25. If no unit can legally use a selected stored value, only that value is consumed. Other stored values and earned arrow/capture rolls remain available unless a third consecutive 6 cancelled the turn.
+24. Finishing a token grants one extra roll. If that finishing move also completes the match, the match ends immediately instead of waiting for the bonus roll.
+25. If no unit can legally use a selected stored value, only that value is consumed. Other stored values and earned arrow/capture rolls remain available; a third consecutive 6 removes only that run of three sixes.
 26. A participant finishes when all owned tokens are finished: four tokens in one-color play or eight tokens in two-color play. The participant is added to the ranking immediately and all owned color seats are silently skipped afterward.
 27. Play continues after the first participant finishes. Each later finisher receives the next ranking position. When only one unfinished participant remains, that participant is assigned the final position and the match ends.
 
@@ -134,14 +134,14 @@ Future versions may offer optional house-rule switches, but V1 should have one d
 1. **Home** — New Game, Continue Game, How to Play, Settings, and update status when a release is available or ready to install.
 2. **Match Setup** — human count, color mode, names/colors, bots, summary.
 3. **Game Board** — board, current player/color, animated dice, legal-token highlights, and a direct Close action.
-4. **Result** — complete finishing order, winner, rematch, home.
+4. **Completed game state** — stay on the board, show the winner, loop confetti until the user taps **Close game**.
 5. **How to Play** — visual rule cards for entry, arrows, doubles, capture, safety, and home.
 
 ### Turn interaction
 
 - The active color is indicated by label, border/highlight, and icon.
 - The player taps the die once. The result is committed to the game state immediately.
-- A 6 stays visible in the dice bank and keeps the Roll action active. After the first non-6, every stored value is selectable; selecting a value highlights its legal tokens.
+- A 6 stays visible in the dice bank and keeps the Roll action active. After the first non-6, a sole stored value is selected automatically and its legal tokens are highlighted. With multiple stored values, the player taps a die first and then chooses a highlighted token.
 - Only legal tokens pulse/highlight; tapping any other token has no effect.
 - Human moves are never forced merely because only one is legal; the player still selects the stored value and token.
 - Movement is animated cell by cell, but the authoritative state updates independently of animation.
@@ -317,7 +317,7 @@ Production releases use the Google Play In-App Updates API through a small `Upda
 - Single/double movement legality, odd-roll rejection, half-distance movement for 2/4/6, automatic safe-square splitting, optional re-pairing, and paired finishing.
 - Capture, protected squares, occupied protected starts, and the full single/double/triple/four-token capture matrix.
 - One bonus roll for every 6, arrow activation, and capture event, including accumulated combinations.
-- Bonus-credit consumption, non-6 counter reset, and clearing all pending bonuses after a cancelled third consecutive 6.
+- Bonus-credit consumption, non-6 counter reset, and preservation of pending bonuses and earlier non-six bank values after three consecutive sixes are discarded.
 - A rolled 6 still earns its bonus when no token can use that die result.
 - No-legal-move turn passing.
 - The opening scan starts at Red and selects the first active seat in Red → Green → Yellow → Blue order.
@@ -377,7 +377,7 @@ Tutorial, sound/haptics, performance, crash handling, Play in-app update integra
 - No invalid seat or color pairing can start.
 - The opening scan is anchored at Red, selects the first active seat in Red → Green → Yellow → Blue order, and all later turns preserve that clockwise sequence while skipping inactive or completed seats.
 - Humans and bots use the same dice results, legal move generator, and reducer.
-- Sixes accumulate as selectable dice-bank values until a non-6 ends rolling; arrows and captures add later bonus rolls. A third consecutive 6 ends the turn and clears the bank and pending bonuses.
+- Sixes accumulate as selectable dice-bank values until a non-6 ends rolling; arrows and captures add bonus rolls immediately. A third consecutive 6 removes those three sixes, resets the streak, and lets the same participant roll again without clearing earlier values or credits.
 - A bot never produces an illegal move across 10,000+ seeded simulation matches.
 - The Normal bot achieves at least a 50% aggregate first-place rate across 10,000 seeded head-to-head matches against a random legal-move bot, split evenly across Red-versus-Yellow, Yellow-versus-Red, Blue-versus-Green, and Green-versus-Blue assignments.
 - Protected squares allow mixed-color occupancy and occupied-start deployment without capture; doubles never prevent passage on any square.

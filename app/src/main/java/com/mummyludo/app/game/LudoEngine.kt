@@ -69,21 +69,33 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         check(state.roll == null && state.awaitingRoll && !state.completed)
         val value = forced ?: generateRoll()
         require(value in 1..6)
+        // A six continuation is taken before any queued arrow/capture credits.
+        // Otherwise this roll consumes one queued credit at commit time.
+        val consumesBonus = state.pendingBonus > 0 && state.consecutiveSixes == 0
+        val remainingBonus = state.pendingBonus - if (consumesBonus) 1 else 0
         val streak = if (value == 6) state.consecutiveSixes + 1 else 0
         if (streak == 3) {
-            return advance(state.copy(
+            // The three consecutive sixes are void, but the participant keeps
+            // the turn. Preserve any earlier non-six bank values and credits.
+            return state.copy(
                 consecutiveSixes = 0,
-                pendingBonus = 0,
-                diceBank = emptyList(),
-                awaitingRoll = false,
-            )).copy(message = "Third six cancelled · turn ended")
+                pendingBonus = remainingBonus,
+                diceBank = state.diceBank.dropLast(2),
+                awaitingRoll = true,
+                message = "Three sixes cancelled · roll again",
+            )
         }
         val bank = state.diceBank + value
         return state.copy(
             diceBank = bank,
+            pendingBonus = remainingBonus,
             consecutiveSixes = streak,
-            awaitingRoll = value == 6,
-            message = if (value == 6) "Six rolled · roll again" else "Choose a dice value",
+            awaitingRoll = value == 6 || remainingBonus > 0,
+            message = when {
+                value == 6 -> "Six rolled · roll again"
+                remainingBonus > 0 -> "Bonus roll"
+                else -> "Choose a dice value"
+            },
         )
     }
 
@@ -98,6 +110,9 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         return if (legalMoves(selected).isEmpty()) finishMove(selected.copy(message = "No legal move for $value"))
         else selected
     }
+
+    fun selectOnlyDie(state: GameState): GameState =
+        if (!state.awaitingRoll && state.roll == null && state.diceBank.size == 1) selectDie(state, 0) else state
 
     fun legalMoves(state: GameState): List<UnitMove> {
         val die = state.roll ?: return emptyList()
@@ -126,11 +141,12 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
             if (isDouble && die % 2 != 0) return@mapNotNull null
             val steps = if (isDouble) die / 2 else die
             val current = unit.first().progress
+            val destination = advanceProgress(current, steps)
             when {
                 current == YARD && die == 6 -> UnitMove(unit.map(Token::id), 0, 0, enters = true)
                 current == YARD -> null
-                current + steps > FINISHED -> null
-                else -> UnitMove(unit.map(Token::id), current + steps, steps)
+                destination > FINISHED -> null
+                else -> UnitMove(unit.map(Token::id), destination, steps)
             }
         }
     }
@@ -140,7 +156,7 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         val moving = state.tokens.filter { it.id in move.tokenIds }
         val color = moving.first().color
         val baseDestination = move.destination
-        val arrowDestination = arrowHead(baseDestination)
+        val arrowDestination = arrowHead(color, baseDestination)
         val destination = arrowDestination ?: baseDestination
         val arrow = arrowDestination != null
         val movedTokens = state.tokens.map { token ->
@@ -170,7 +186,10 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         var next = state.copy(
             tokens = afterCapture,
             pairs = pairs,
-            pendingBonus = state.pendingBonus + (if (arrow) 1 else 0) + (if (capturedIds.isNotEmpty()) 1 else 0),
+            pendingBonus = state.pendingBonus +
+                (if (arrow) 1 else 0) +
+                (if (capturedIds.isNotEmpty()) 1 else 0) +
+                (if (destination == FINISHED) 1 else 0),
             message = buildString {
                 append(color.label)
                 if (capturedIds.isNotEmpty()) append(" captured ${capturedIds.size}")
@@ -187,17 +206,18 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
     fun chooseBest(state: GameState): UnitMove = legalMoves(state).maxWith(
         compareBy<UnitMove> {
             val color = state.seats[state.activeSeat].color
-            val global = globalTrack(color, if (it.destination <= 51) it.destination else -1)
+            val resolvedDestination = arrowHead(color, it.destination) ?: it.destination
+            val global = globalTrack(color, if (resolvedDestination <= 51) resolvedDestination else -1)
             val opponents = state.tokens.count { token ->
                 token.color != color && token.progress in 0..51 && globalTrack(token.color, token.progress) == global
             }
             when {
-                it.destination == FINISHED -> 10_000
+                resolvedDestination == FINISHED -> 10_000
                 opponents > 0 -> 8_000 + opponents
-                it.destination > 51 -> 5_000 + it.destination
-                isProtected(color, it.destination) -> 3_000
+                resolvedDestination > 51 -> 5_000 + resolvedDestination
+                isProtected(color, resolvedDestination) -> 3_000
                 it.enters -> 2_000
-                else -> it.destination
+                else -> resolvedDestination
             }
         }.thenBy { it.tokenIds.joinToString() },
     )
@@ -270,18 +290,20 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
 
     private fun finishMove(state: GameState): GameState {
         if (state.completed) return state.copy(roll = null, diceBank = emptyList(), message = "${state.ranking.first().label} wins!")
+        // Arrow/capture credits are rolled into the bank immediately so the
+        // player can make one collective decision with every available value.
+        if (state.pendingBonus > 0) return state.copy(
+            roll = null,
+            awaitingRoll = true,
+            consecutiveSixes = 0,
+            message = "Bonus roll",
+        )
         if (state.diceBank.isNotEmpty()) return state.copy(
             roll = null,
             awaitingRoll = false,
             message = "Choose another dice value",
         )
-        return if (state.pendingBonus > 0) state.copy(
-            roll = null,
-            awaitingRoll = true,
-            pendingBonus = state.pendingBonus - 1,
-            consecutiveSixes = 0,
-            message = "Bonus roll",
-        ) else advance(state.copy(roll = null, awaitingRoll = false))
+        return advance(state.copy(roll = null, awaitingRoll = false))
     }
 
     private fun advance(state: GameState): GameState {
@@ -301,26 +323,29 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
 
     private fun scoreMove(state: GameState, move: UnitMove): Int {
         val color = state.seats[state.activeSeat].color
-        val global = globalTrack(color, if (move.destination <= 51) move.destination else -1)
+        val resolvedDestination = arrowHead(color, move.destination) ?: move.destination
+        val global = globalTrack(color, if (resolvedDestination <= 51) resolvedDestination else -1)
         val opponents = state.tokens.count { token ->
             token.color != color && token.progress in 0..51 && globalTrack(token.color, token.progress) == global
         }
         return when {
-            move.destination == FINISHED -> 10_000
+            resolvedDestination == FINISHED -> 10_000
             opponents > 0 -> 8_000 + opponents
-            move.destination > 51 -> 5_000 + move.destination
-            isProtected(color, move.destination) -> 3_000
+            resolvedDestination > 51 -> 5_000 + resolvedDestination
+            isProtected(color, resolvedDestination) -> 3_000
             move.enters -> 2_000
-            else -> move.destination
+            else -> resolvedDestination
         }
     }
 }
 
-fun arrowHead(progress: Int): Int? = when (progress) {
-    1 -> 2
-    4 -> 5
-    48 -> 52
-    else -> null
+private val shortArrowTails = setOf(1, 4, 14, 17, 27, 30, 40, 43)
+
+fun arrowHead(color: LudoColor, progress: Int): Int? {
+    // The home-entry arrow belongs to the token's own route. Short arrows are
+    // physical board features and work for every token color that lands there.
+    if (progress == 48) return 52
+    return if (progress in 0..51 && globalTrack(color, progress) in shortArrowTails) progress + 1 else null
 }
 
 fun globalTrack(color: LudoColor, progress: Int): Int = if (progress in 0..51) {
@@ -329,3 +354,27 @@ fun globalTrack(color: LudoColor, progress: Int): Int = if (progress in 0..51) {
 
 fun isProtected(color: LudoColor, progress: Int): Boolean =
     progress in 0..51 && globalTrack(color, progress) in protectedTrack
+
+fun advanceProgress(current: Int, steps: Int): Int {
+    val rawDestination = current + steps
+    return if (current <= 50 && rawDestination >= 51) rawDestination + 1 else rawDestination
+}
+
+fun movementAnimationProgresses(
+    start: Int,
+    baseDestination: Int,
+    finalDestination: Int,
+    enters: Boolean,
+    arrow: Boolean,
+): List<Int> {
+    if (enters) return listOf(0)
+    if (baseDestination <= start) return emptyList()
+    val walked = (start + 1..baseDestination).filterNot { !arrow && baseDestination >= 52 && it == 51 }
+    if (!arrow) return walked
+    val arrowPath = if (finalDestination > baseDestination) {
+        (baseDestination + 1..finalDestination).toList()
+    } else {
+        emptyList()
+    }
+    return (walked + arrowPath).filterNot { baseDestination == 48 && finalDestination == 52 && it == 51 }
+}

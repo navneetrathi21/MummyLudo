@@ -114,4 +114,59 @@ class HomeSetupScreensTest {
         compose.onNodeWithText("‹ Back").performClick()
         assertTrue(backed)
     }
+
+    @Test
+    fun `home screen displays user name greeting when provided`() {
+        compose.setContent {
+            MummyLudoTheme {
+                HomeScreen(
+                    hasSavedGame = false,
+                    playerName = "Cleo",
+                    onNewGame = {},
+                    onNearby = {},
+                    onRules = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("home_user_greeting").assertIsDisplayed()
+        compose.onNodeWithText("Welcome, Cleo!").assertIsDisplayed()
+    }
+
+    @Test
+    fun `setup screen displays custom player name in 2 player duel`() {
+        compose.setContent {
+            MummyLudoTheme {
+                SetupScreen(
+                    humanCount = 1,
+                    botCount = 1,
+                    reverseDuel = false,
+                    primaryPlayerName = "Alex",
+                    onHumans = {},
+                    onBots = {},
+                    onReverse = {},
+                    onBack = {},
+                    onStart = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Alex Red · Bot Yellow").assertIsDisplayed()
+    }
+
+    @Test
+    fun `createSeats assigns primary player name and falls back to Player 1`() {
+        val customSeats = createSeats(1, 1, false, "Cleo")
+        assertEquals("Cleo", customSeats[0].name)
+        assertEquals("Bot 1", customSeats[1].name)
+
+        val reversedSeats = createSeats(1, 1, true, "Cleo")
+        assertEquals(com.mummyludo.app.game.LudoColor.YELLOW, reversedSeats[0].color)
+        assertEquals("Cleo", reversedSeats[0].name)
+
+        val fallbackSeats = createSeats(2, 1, false, "   ")
+        assertEquals("Player 1", fallbackSeats[0].name)
+        assertEquals("Player 2", fallbackSeats[1].name)
+        assertEquals("Bot 1", fallbackSeats[2].name)
+    }
 }

@@ -107,4 +107,23 @@ class NearbyLobbyViewModelTest {
         vm.onCleared()
         assertFalse(vm.isHost)
     }
+
+    @Test
+    fun startHostingWithDefaultNameAndJoining() = runTest(testDispatcher) {
+        val vm = NearbyLobbyViewModel(coordinator, this)
+        val success = vm.startHosting(
+            onStarted = {},
+            onGameAction = { _, _ -> },
+        )
+        assertTrue(success)
+        assertEquals("Player 1", vm.hostLobby?.players?.firstOrNull()?.name)
+
+        // Exercise startJoining default initialName
+        val payload = JoinPayload("session-test", "127.0.0.1", 49152, "token")
+        vm.startJoining(payload = payload, onStarted = { _, _ -> })
+        assertNotNull(vm.clientSession)
+        vm.updateGuestProfile("Guest", LudoColor.BLUE, true)
+        vm.sendClientAction(NearbyGameAction.Roll)
+        vm.closeAllSessions()
+    }
 }

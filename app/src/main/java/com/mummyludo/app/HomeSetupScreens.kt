@@ -21,6 +21,7 @@ import com.mummyludo.app.nearby.*
 @Composable
 internal fun HomeScreen(
     hasSavedGame: Boolean = false,
+    playerName: String = "",
     onContinueGame: () -> Unit = {},
     onNewGame: () -> Unit,
     onNearby: () -> Unit,
@@ -34,7 +35,11 @@ internal fun HomeScreen(
         MiniLogo()
         Spacer(Modifier.height(22.dp))
         Text("Mummy Ludo", fontSize = 36.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-        Text("A fair game for everyone", color = Ink.copy(alpha = .62f), fontSize = 16.sp)
+        if (playerName.isNotBlank()) {
+            Text("Welcome, $playerName!", color = Sage, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.testTag("home_user_greeting"))
+        } else {
+            Text("A fair game for everyone", color = Ink.copy(alpha = .62f), fontSize = 16.sp)
+        }
         Spacer(Modifier.weight(0.65f))
         if (hasSavedGame) {
             Button(
@@ -82,6 +87,7 @@ internal fun SetupScreen(
     humanCount: Int,
     botCount: Int,
     reverseDuel: Boolean,
+    primaryPlayerName: String = "Player",
     onHumans: (Int) -> Unit,
     onBots: (Int) -> Unit,
     onReverse: () -> Unit,
@@ -106,7 +112,8 @@ internal fun SetupScreen(
                 ) {
                     Column {
                         Text("Opposite colors", fontWeight = FontWeight.Medium)
-                        Text(if (reverseDuel) "Player Yellow · Bot Red" else "Player Red · Bot Yellow", color = Ink.copy(.65f))
+                        val p1 = if (primaryPlayerName.isBlank() || primaryPlayerName == "Player 1") "Player" else primaryPlayerName.trim()
+                        Text(if (reverseDuel) "$p1 Yellow · Bot Red" else "$p1 Red · Bot Yellow", color = Ink.copy(.65f))
                     }
                     Text("Swap", color = Sage)
                 }

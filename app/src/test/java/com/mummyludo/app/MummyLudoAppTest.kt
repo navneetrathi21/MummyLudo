@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.mummyludo.app.game.*
 import com.mummyludo.app.nearby.JoinPayload
 import com.mummyludo.app.nearby.JoinPayloadCodec
@@ -21,11 +22,16 @@ import com.mummyludo.app.nearby.NearbyLanHost
 import com.mummyludo.app.nearby.NearbyLanClient
 import com.mummyludo.app.nearby.NearbyLobbyCoordinator
 import java.security.SecureRandom
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.mummyludo.app.storage.GameRepository
+import com.mummyludo.app.storage.SharedUserPreferences
+import com.mummyludo.app.storage.UserPreferences
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,6 +43,13 @@ import org.robolectric.annotation.Config
 class MummyLudoAppTest {
     @get:Rule
     val compose = createComposeRule()
+
+    @Before
+    fun setUpPreferences() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences(SharedUserPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().clear().putBoolean(SharedUserPreferences.KEY_HAS_COMPLETED_WELCOME, true).putString(SharedUserPreferences.KEY_PLAYER_NAME, "Player 1").commit()
+    }
 
     @Test
     fun homeRulesAndSystemBackNavigationWorkIncludingDoubleBackExit() {
@@ -389,6 +402,60 @@ class MummyLudoAppTest {
         compose.onNodeWithText("Game lobby").assertIsDisplayed()
         compose.runOnIdle { backDispatcher.onBackPressed() }
         compose.onNodeWithText("Play nearby").assertIsDisplayed()
+    }
+
+    @Test
+    fun firstLaunchShowsWelcomeScreenAndCompletingItSavesNameAndNavigatesToHome() {
+        val userPrefs = FakeUserPreferences(name = "", completed = false)
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedUserPreferences = userPrefs,
+                )
+            }
+        }
+
+        compose.onNodeWithTag("welcome_screen").assertIsDisplayed()
+        compose.onNodeWithTag("welcome_name_input").performTextInput("Cleopatra")
+        compose.onNodeWithTag("welcome_continue_button").performClick()
+
+        // Should now be on Home with greeting
+        compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()
+        compose.onNodeWithTag("home_user_greeting").assertIsDisplayed()
+        compose.onNodeWithText("Welcome, Cleopatra!").assertIsDisplayed()
+
+        assertTrue(userPrefs.hasCompletedWelcome())
+        assertEquals("Cleopatra", userPrefs.getPlayerName())
+    }
+
+    @Test
+    fun welcomeScreenBackPressExitsApp() {
+        var exits = 0
+        lateinit var backDispatcher: OnBackPressedDispatcher
+        val userPrefs = FakeUserPreferences(name = "", completed = false)
+        compose.setContent {
+            backDispatcher = requireNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedUserPreferences = userPrefs,
+                    onExitApp = { exits++ },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("welcome_screen").assertIsDisplayed()
+        compose.runOnIdle { backDispatcher.onBackPressed() }
+        assertEquals(1, exits)
+    }
+
+    private class FakeUserPreferences(
+        var name: String = "",
+        var completed: Boolean = false,
+    ) : UserPreferences {
+        override fun getPlayerName(): String = name
+        override fun setPlayerName(name: String) { this.name = name.trim() }
+        override fun hasCompletedWelcome(): Boolean = completed
+        override fun setCompletedWelcome(completed: Boolean) { this.completed = completed }
     }
 
     private class RecordingRepository(

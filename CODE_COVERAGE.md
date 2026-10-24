@@ -6,9 +6,11 @@ Last completed measurement: 2026-10-24, using `./gradlew testDebugUnitTest creat
 
 | Area | Source file | Line coverage | Being worked on? | Owner | Remarks |
 | --- | --- | ---: | --- | --- | --- |
-| Overall | All app source | 🟢 99.1% (1,841/1,857) | No | — | 13 of 17 source files at 100.00%; all 17 files $\ge 96.3\%$ |
+| Overall | All app source | 🟢 99.4% (1,948/1,960) | No | — | 13 of 19 source files at 100.00%; all 19 files $\ge 96.9\%$ |
 | Game | `game/LudoEngine.kt` | 🟢 99.6% (261/262) | Done | Codex / Antigravity | Turn loop, bot heuristics, bank orders, captures, arrow traversals, and default parameters pass |
 | Game | `game/DiceRollPath.kt` | 🟢 100.0% (26/26) | Done | Codex | Deterministic roll calculations pass |
+| ViewModels | `viewmodel/GameViewModel.kt` | 🟢 98.4% (62/63) | Done | Antigravity | Active match state, save/restore, auto-play simulation coroutines, and error handling pass |
+| ViewModels | `viewmodel/NearbyLobbyViewModel.kt` | 🟢 99.0% (97/98) | Done | Antigravity | Host/guest session management, QR/payload processing, action broadcasting, and lifecycle cleanup pass |
 | Nearby | `nearby/NearbySession.kt` | 🟢 100.0% (91/91) | Done | Codex | Session lifecycle and peer state sync pass |
 | Nearby | `nearby/NearbyGameProtocol.kt` | 🟢 100.0% (49/49) | Done | Codex | 96.1% branch coverage; positive and negative protocol tests pass |
 | Nearby | `nearby/NearbyLan.kt` | 🟢 100.0% (160/160) | Done | Codex | 64.3% branch coverage; invalid-token and unreachable-host tests pass |
@@ -16,7 +18,7 @@ Last completed measurement: 2026-10-24, using `./gradlew testDebugUnitTest creat
 | Nearby UI | `nearby/NearbyScreens.kt` | 🟢 100.0% (100/100) | Done | Codex | 66.1% branch coverage; Host, Join, QR, validation, disabled-action, and callback tests pass |
 | App UI | `AppTheme.kt` | 🟢 100.0% (17/17) | Done | Codex | Approved palette and themed-content rendering test passes |
 | App UI | `MainActivity.kt` | 🟢 96.9% (125/129) | Done | Codex | Lifecycle, permissions, Wi-Fi, Play update, scanner tests pass |
-| App UI | `MummyLudoApp.kt` | 🟢 96.4% (211/219) | Done | Codex | Local, saved-game, nearby host/client, back-navigation, and auto-play flows pass |
+| App UI | `MummyLudoApp.kt` | 🟢 98.8% (159/161) | Done | Antigravity | Decoupled UI scaffold & screen router delegating to GameViewModel & NearbyLobbyViewModel |
 | HomeSetupScreens | `HomeSetupScreens.kt` | 🟢 100.0% (99/99) | Done | Codex | Navigation, setup limits, reverse duel, continue-game, and start-game flows pass |
 | App UI | `GameScreen.kt` | 🟢 98.9% (275/278) | Done | Codex / Antigravity | Local/nearby rolls, bot choices, token animation, controls, and confetti canvas pass |
 | App UI | `LudoBoard.kt` | 🟢 100.0% (168/168) | Done | Antigravity | Board canvas, yards, stars, directional arrows, pawn geometry, spreads 1..4, legal highlights, click handlers, and coordinate transforms pass |
@@ -25,4 +27,4 @@ Last completed measurement: 2026-10-24, using `./gradlew testDebugUnitTest creat
 | Storage | `storage/GameDatabaseHelper.kt` | 🟢 100.0% (45/45) | Done | Antigravity | SQLite saved_match table creation, CRUD, versioning, onUpgrade, default parameter overloads pass |
 | Storage | `storage/GameRepository.kt` | 🟢 100.0% (15/15) | Done | Antigravity | SqliteGameRepository save/load/clear/hasActive and default revision overload pass |
 
-Every source file in the repository has achieved $\ge 96.3\%$ line coverage, with 13 files at 100.00%.
+Every source file in the repository has achieved $\ge 96.9\%$ line coverage, with 13 files at 100.00%. Total codebase line coverage: 99.4%.

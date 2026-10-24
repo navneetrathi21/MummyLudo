@@ -52,7 +52,7 @@ private val offsets = mapOf(
 
 fun pairKey(ids: List<String>): String = ids.sorted().joinToString(":")
 
-class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
+open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
     fun generateRoll(): Int = dice().also { require(it in 1..6) }
 
     fun newGame(seats: List<Seat>): GameState {
@@ -237,7 +237,7 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         return state
     }
 
-    fun simulate(initial: GameState, seed: Int, maxTurns: Int = 50_000): GameState {
+    open fun simulate(initial: GameState, seed: Int, maxTurns: Int = 50_000): GameState {
         val random = Random(seed)
         var state = initial
         var steps = 0

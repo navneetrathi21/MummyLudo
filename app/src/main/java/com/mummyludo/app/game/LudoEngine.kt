@@ -246,7 +246,7 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         return state
     }
 
-    private fun capturedAt(
+    internal fun capturedAt(
         attacker: LudoColor,
         destination: Int,
         attackingCount: Int,
@@ -263,8 +263,8 @@ class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         val singles = opponents.filter { token -> token !in paired }
         return when (attackingCount) {
             1 -> if (opponents.size == 1) setOf(opponents.first().id)
-                 else if (opponents.size == 3 && singles.isNotEmpty()) setOf(singles.first().id)
-                 else emptySet()
+                else if (opponents.size == 3 && singles.isNotEmpty()) setOf(singles.first().id)
+                else emptySet()
             2 -> when {
                 opponents.size >= 4 -> opponents.take(4).map(Token::id).toSet()
                 opponents.size == 3 && paired.size >= 2 -> paired.take(2).map(Token::id).toSet()

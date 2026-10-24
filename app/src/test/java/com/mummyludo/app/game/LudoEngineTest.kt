@@ -412,4 +412,38 @@ class LudoEngineTest {
             assertTrue(result.tokens.count { it.progress == FINISHED } >= (seats.size - 1) * 4)
         }
     }
+
+    @Test
+    fun engineDefaultParametersAndEdgeCasesAreCovered() {
+        val engine = LudoEngine { 6 }
+        val start = engine.newGame(listOf(red, yellow))
+
+        // commitRoll without forced param (uses default forced = null)
+        val rolled = engine.commitRoll(start)
+        assertEquals(listOf(6), rolled.diceBank)
+        assertTrue(rolled.awaitingRoll)
+
+        // autoStep without forcedRoll param (uses default forcedRoll = null)
+        val afterStep = engine.autoStep(start)
+        assertEquals(listOf(6), afterStep.diceBank)
+
+        // autoStep fallback return state (not completed, not awaitingRoll, roll != null)
+        val notAwaiting = rolled.copy(awaitingRoll = false, roll = 6)
+        val fallback = engine.autoStep(notAwaiting)
+        assertEquals(notAwaiting, fallback)
+
+        // movementAnimationProgresses arrow with finalDestination <= baseDestination
+        val path = movementAnimationProgresses(start = 10, baseDestination = 14, finalDestination = 14, enters = false, arrow = true)
+        assertEquals(listOf(11, 12, 13, 14), path)
+
+        // capturedAt with invalid attackingCount returns emptySet
+        val captures = engine.capturedAt(
+            attacker = LudoColor.RED,
+            destination = 0,
+            attackingCount = 3,
+            tokens = listOf(Token(LudoColor.YELLOW, 0, progress = 39)),
+            pairs = emptySet(),
+        )
+        assertTrue(captures.isEmpty())
+    }
 }

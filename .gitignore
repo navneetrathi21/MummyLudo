@@ -7,4 +7,6 @@ captures/
 .DS_Store
 *.keystore
 *.jks
+keystore.properties
+
 

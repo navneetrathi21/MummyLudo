@@ -1,3 +1,5 @@
+import java.io.FileInputStream
+import java.util.Properties
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 
 plugins {
@@ -13,10 +15,22 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+val keystorePropertiesFile = rootProject.file("keystore.properties").takeIf { it.exists() }
+    ?: project.file("keystore.properties").takeIf { it.exists() }
+val keystoreProperties = Properties().apply {
+    keystorePropertiesFile?.let { file ->
+        FileInputStream(file).use { stream -> load(stream) }
+    }
+}
+
 val releaseStoreFilePath = providers.environmentVariable("MUMMY_LUDO_RELEASE_STORE_FILE").orNull
+    ?: keystoreProperties.getProperty("storeFile")
 val releaseStorePassword = providers.environmentVariable("MUMMY_LUDO_RELEASE_STORE_PASSWORD").orNull
+    ?: keystoreProperties.getProperty("storePassword")
 val releaseKeyAlias = providers.environmentVariable("MUMMY_LUDO_RELEASE_KEY_ALIAS").orNull
+    ?: keystoreProperties.getProperty("keyAlias")
 val releaseKeyPassword = providers.environmentVariable("MUMMY_LUDO_RELEASE_KEY_PASSWORD").orNull
+    ?: keystoreProperties.getProperty("keyPassword")
 val hasReleaseSigning = listOf(
     releaseStoreFilePath,
     releaseStorePassword,
@@ -32,8 +46,8 @@ android {
         applicationId = "com.mummyludo.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.2.2"
+        versionCode = 5
+        versionName = "0.2.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -43,7 +57,8 @@ android {
     signingConfigs {
         create("release") {
             if (hasReleaseSigning) {
-                storeFile = file(requireNotNull(releaseStoreFilePath))
+                val storePath = requireNotNull(releaseStoreFilePath)
+                storeFile = if (File(storePath).isAbsolute) file(storePath) else rootProject.file(storePath)
                 storePassword = releaseStorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword

@@ -72,9 +72,18 @@ All notable changes to this project will be recorded here.
   - Added comprehensive LAN socket server integration test verifying multi-turn gameplay across `NearbyLanHost` and `NearbyLanClient` with alternating turns, socket actions (`Roll`, `SelectDie`, `Move`), server-side action validation (`isAuthorizedGameAction`), and synchronized state resolution across peers.
   - Verified full UI-level guest turn dispatch over the network in `MummyLudoAppTest`.
 
+- **Google Play Store Upload Readiness**:
+  - Bumped application version to `versionCode = 5` and `versionName = "0.2.3"` in `app/build.gradle.kts`.
+  - Added support for local `keystore.properties` alongside environment variables for flexible release signing.
+  - Created `PRIVACY_POLICY.md` detailing on-device permissions (`CAMERA`, `LOCATION` / Wi-Fi) and confirming no personal data collection or tracking.
+  - Created `PLAY_STORE_LISTING.md` with complete copy-pasteable store metadata (App Name, Short/Full Description, IARC Content Rating questionnaire answers, Data Safety questionnaire answers, and Release Notes).
+  - Added release automation scripts: `scripts/build_play_store_release.sh` (runs tests and builds release AAB) and `scripts/generate_upload_keystore.sh` (generates standard 2048-bit RSA upload keystore).
+  - Successfully generated production release Android App Bundle (`app/build/outputs/bundle/release/app-release.aab`).
+
 ### Verification & Metrics
 - All 156 unit tests passing with 0 failures (100% pass rate).
 - Whole-app line coverage reached **99.1%** (2,406 / 2,427 lines covered across all 21 source files, 13 files at 100.0%, all files $\ge 96.6\%$).
+- Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 
 

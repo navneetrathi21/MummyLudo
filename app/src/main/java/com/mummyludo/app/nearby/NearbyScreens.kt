@@ -62,10 +62,11 @@ fun HostLobbyScreen(
         Spacer(Modifier.height(10.dp))
         Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Same Wi-Fi Network", fontWeight = FontWeight.SemiBold)
+                Text(wifiName ?: "Same Wi-Fi Network", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.testTag("host_wifi_name"))
                 Text(
-                    "All players must join the same Wi-Fi or hotspot",
+                    if (wifiName != null) "All players must join this Wi-Fi" else "All players must join the same Wi-Fi or hotspot",
                     color = NearbyInk.copy(.58f),
+                    fontSize = 13.sp,
                 )
                 Spacer(Modifier.height(10.dp))
                 if (joinCode != null) {

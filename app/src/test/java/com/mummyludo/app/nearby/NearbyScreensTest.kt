@@ -102,8 +102,8 @@ class NearbyScreensTest {
             )
         }
 
-        compose.onNodeWithText("Same Wi-Fi Network").assertIsDisplayed()
-        compose.onNodeWithText("All players must join the same Wi-Fi or hotspot").assertIsDisplayed()
+        compose.onNodeWithText("Family Wi-Fi").assertIsDisplayed()
+        compose.onNodeWithText("All players must join this Wi-Fi").assertIsDisplayed()
         compose.onNodeWithTag("host_game_qr").assertIsDisplayed()
         compose.onNodeWithContentDescription("Game join QR code").assertIsDisplayed()
         LudoColor.entries.forEach { compose.onNodeWithText(it.label).assertExists() }

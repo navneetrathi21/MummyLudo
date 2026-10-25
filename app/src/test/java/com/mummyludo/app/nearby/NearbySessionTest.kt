@@ -46,9 +46,12 @@ class NearbySessionTest {
     }
 
     @Test fun `wifi permissions follow Android version`() {
-        assertEquals(listOf("android.permission.ACCESS_FINE_LOCATION"), requiredWifiPermissions(32))
         assertEquals(
-            listOf("android.permission.ACCESS_FINE_LOCATION", "android.permission.NEARBY_WIFI_DEVICES"),
+            listOf("android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"),
+            requiredWifiPermissions(32),
+        )
+        assertEquals(
+            listOf("android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION", "android.permission.NEARBY_WIFI_DEVICES"),
             requiredWifiPermissions(33),
         )
     }

@@ -16,6 +16,7 @@ fun cleanWifiSsid(raw: String?): String? = raw
 
 fun requiredWifiPermissions(sdkInt: Int): List<String> = buildList {
     add("android.permission.ACCESS_FINE_LOCATION")
+    add("android.permission.ACCESS_COARSE_LOCATION")
     if (sdkInt >= 33) add("android.permission.NEARBY_WIFI_DEVICES")
 }
 

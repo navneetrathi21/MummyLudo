@@ -164,11 +164,16 @@ class MainActivity : ComponentActivity() {
             val connectivity = applicationContext.getSystemService(ConnectivityManager::class.java)
             val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
             if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) return@runCatching null
+            val wifiManager = applicationContext.getSystemService(WifiManager::class.java)
+            @Suppress("DEPRECATION")
+            val fromWifiManager = cleanWifiSsid(wifiManager?.connectionInfo?.ssid)
+            if (fromWifiManager != null) return@runCatching fromWifiManager
+
             val wifiInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 capabilities.transportInfo as? WifiInfo
             } else {
                 @Suppress("DEPRECATION")
-                applicationContext.getSystemService(WifiManager::class.java).connectionInfo
+                wifiManager?.connectionInfo
             }
             cleanWifiSsid(wifiInfo?.ssid)
         }.getOrNull()

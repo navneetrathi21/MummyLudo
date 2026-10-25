@@ -3,8 +3,10 @@ package com.mummyludo.app.nearby
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +17,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mummyludo.app.game.LudoColor
+
+private val NearbyInk = Color(0xFF20312B)
+private val NearbyGreen = Color(0xFF3F725F)
+private val NearbyCream = Color(0xFFF8F4EA)
 
 @Composable
 fun GuestLobbyScreen(
@@ -29,49 +35,120 @@ fun GuestLobbyScreen(
     var name by remember(me?.name) { mutableStateOf(me?.name ?: "Player") }
     val selected = me?.color
     val unavailable = lobby?.players.orEmpty().filter { it.id != playerId }.mapNotNull { it.color }.toSet() + lobby?.botColors.orEmpty()
-    Column(modifier.fillMaxSize().background(Color(0xFFF8F4EA)).padding(20.dp)) {
+
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(NearbyCream)
+            .padding(20.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("‹ Leave") }
-            Text("Game lobby", fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
+            Text("Game lobby", fontSize = 25.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
         }
-        if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
+        if (error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
+        }
         if (lobby == null) {
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(60.dp))
             CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
-            Text("Connecting to host…", Modifier.align(Alignment.CenterHorizontally).padding(12.dp))
-            Spacer(Modifier.weight(1f))
+            Text("Connecting to host…", Modifier.align(Alignment.CenterHorizontally).padding(12.dp), color = NearbyInk)
             return@Column
         }
-        Spacer(Modifier.height(18.dp))
-        OutlinedTextField(value = name, onValueChange = { name = it.take(24) }, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("guest_name"))
-        Spacer(Modifier.height(22.dp))
-        Text("Choose your color", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            LudoColor.entries.forEach { color ->
-                val enabled = color !in unavailable
-                Box(
-                    Modifier.size(52.dp).background(color.uiColor().copy(alpha = if (enabled) 1f else .2f), CircleShape)
-                        .clickable(enabled = enabled) { onProfile(name, color, false) }
-                        .testTag("guest_color_${color.name.lowercase()}"),
-                    contentAlignment = Alignment.Center,
-                ) { if (selected == color) Text("✓", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold) }
+
+        Spacer(Modifier.height(14.dp))
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth().testTag("guest_profile_card"),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(24) },
+                    label = { Text("Your name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("guest_name"),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NearbyGreen,
+                        focusedLabelColor = NearbyGreen,
+                    ),
+                )
+                Spacer(Modifier.height(14.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Choose your color", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
+                    Text(
+                        selected?.label ?: "None selected",
+                        color = NearbyInk.copy(.58f),
+                        fontSize = 13.sp,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    LudoColor.entries.forEach { color ->
+                        val enabled = color !in unavailable
+                        Box(
+                            Modifier
+                                .size(50.dp)
+                                .background(color.uiColor().copy(alpha = if (enabled) 1f else .25f), CircleShape)
+                                .clickable(enabled = enabled) { onProfile(name, color, false) }
+                                .testTag("guest_color_${color.name.lowercase()}"),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (selected == color) {
+                                Text("✓", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
             }
         }
-        Text("Players", fontWeight = FontWeight.SemiBold)
+
+        Spacer(Modifier.height(14.dp))
+        Text("Players", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
         lobby.players.forEach { player ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(12.dp).background(player.color?.uiColor() ?: Color.LightGray, CircleShape))
-                Text(player.name, Modifier.padding(start = 10.dp).weight(1f))
-                Text(if (player.ready) "Ready" else "Waiting", color = Color(0xFF3F725F))
+            Card(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(14.dp).background(player.color?.uiColor() ?: NearbyInk.copy(.2f), RoundedCornerShape(7.dp)))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            player.name,
+                            fontWeight = FontWeight.Medium,
+                            color = NearbyInk,
+                        )
+                        Text(player.color?.label ?: "Choosing color", color = NearbyInk.copy(.58f), fontSize = 13.sp)
+                    }
+                    Text(
+                        if (player.ready) "Ready" else "Waiting",
+                        color = if (player.ready) NearbyGreen else NearbyInk.copy(.45f),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
+
         Spacer(Modifier.weight(1f))
         Button(
             onClick = { onProfile(name, selected, !(me?.ready ?: false)) },
             enabled = selected != null,
             modifier = Modifier.fillMaxWidth().height(58.dp).testTag("guest_ready"),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (me?.ready == true) NearbyInk.copy(.7f) else NearbyGreen,
+            ),
             shape = RoundedCornerShape(18.dp),
-        ) { Text(if (me?.ready == true) "Not ready" else "I'm ready", fontSize = 17.sp) }
+        ) {
+            Text(if (me?.ready == true) "Not ready" else "I'm ready", fontSize = 17.sp)
+        }
     }
 }
 

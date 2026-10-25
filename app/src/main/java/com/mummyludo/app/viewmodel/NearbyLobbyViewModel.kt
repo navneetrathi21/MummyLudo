@@ -67,7 +67,13 @@ open class NearbyLobbyViewModel(
                 initialLobby = initial,
                 coordinator = coordinator,
                 onLobby = { updated -> scope.launch { hostLobby = updated } },
-                onStarted = { seats -> scope.launch { onStarted(seats) } },
+                onStarted = { seats ->
+                    scope.launch {
+                        val hostColor = hostLobby?.players?.firstOrNull { it.isHost }?.color ?: LudoColor.RED
+                        nearbyLocalColor = hostColor
+                        onStarted(seats)
+                    }
+                },
                 onGameAction = { playerId, action ->
                     scope.launch {
                         val playerColor = hostLobby?.players?.firstOrNull { it.id == playerId }?.color
@@ -115,6 +121,19 @@ open class NearbyLobbyViewModel(
 
     fun updateGuestProfile(name: String, color: LudoColor?, ready: Boolean) {
         clientSession?.updateProfile(name, color, ready)
+    }
+
+    fun updateHostProfile(name: String, color: LudoColor?, ready: Boolean) {
+        if (color != null) nearbyLocalColor = color
+        hostSession?.updateProfile(name, color, ready)
+        hostLobby?.let { current ->
+            val hostPlayer = current.players.find { it.isHost } ?: return@let
+            hostLobby = current.copy(
+                players = current.players.map {
+                    if (it.id == hostPlayer.id) it.copy(name = name, color = color, ready = ready) else it
+                },
+            )
+        }
     }
 
     fun acceptNearbyAction(

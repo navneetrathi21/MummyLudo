@@ -34,6 +34,7 @@ class NearbyLanHost(
         bind(InetSocketAddress(port))
     }
     private val clients = ConcurrentHashMap<String, BufferedWriter>()
+    private val clientSockets = ConcurrentHashMap<String, Socket>()
     @Volatile private var lobby = initialLobby
     @Volatile private var running = true
 
@@ -44,57 +45,63 @@ class NearbyLanHost(
     }
 
     private fun handle(socket: Socket) {
+        val socketId = UUID.randomUUID().toString()
+        clientSockets[socketId] = socket
         thread(name = "mummy-ludo-client", isDaemon = true) {
             socket.use {
-                val reader = BufferedReader(InputStreamReader(it.getInputStream()))
-                val writer = BufferedWriter(OutputStreamWriter(it.getOutputStream()))
-                val join = reader.readLine()?.split('|') ?: return@thread
-                if (join.size >= 2 && join[0] == "CHECK") {
-                    val requested = join[1].trim()
-                    if (requested.equals(lobby.joinToken.trim(), ignoreCase = true) || requested.equals(lobby.roomCode.trim(), ignoreCase = true)) {
-                        writer.send("ROOM|${lobby.roomCode}")
-                    } else {
-                        writer.send("MISMATCH")
-                    }
-                    return@thread
-                }
-                val token = decode(join[1]).trim()
-                if (join.size != 4 || join[0] != "JOIN" || (!token.equals(lobby.joinToken.trim(), ignoreCase = true) && !token.equals(lobby.roomCode.trim(), ignoreCase = true))) {
-                    writer.send("ERROR|${encode("This game code has expired")}")
-                    return@thread
-                }
-                val playerId = decode(join[2])
-                val playerName = decode(join[3])
-                synchronized(this@NearbyLanHost) {
-                    lobby = coordinator.join(lobby, playerId, playerName)
-                    clients[playerId] = writer
-                    publishLobby()
-                }
                 try {
-                    while (running) {
-                        val parts = reader.readLine()?.split('|') ?: break
-                        if (parts.size == 5 && parts[0] == "PROFILE" && decode(parts[1]) == playerId) {
-                            val name = decode(parts[2]).trim().take(24).ifBlank { "Player" }
-                            val color = parts[3].takeUnless { value -> value == "-" }?.let(LudoColor::valueOf)
-                            val ready = parts[4].toBooleanStrictOrNull() ?: false
-                            synchronized(this@NearbyLanHost) {
-                                lobby = rename(lobby, playerId, name)
-                                if (color != null) lobby = coordinator.chooseColor(lobby, playerId, color)
-                                lobby = coordinator.setReady(lobby, playerId, ready)
-                                publishLobby()
+                    val reader = BufferedReader(InputStreamReader(it.getInputStream()))
+                    val writer = BufferedWriter(OutputStreamWriter(it.getOutputStream()))
+                    val join = reader.readLine()?.split('|') ?: return@thread
+                    if (join.size >= 2 && join[0] == "CHECK") {
+                        val requested = join[1].trim()
+                        if (requested.equals(lobby.joinToken.trim(), ignoreCase = true) || requested.equals(lobby.roomCode.trim(), ignoreCase = true)) {
+                            writer.send("ROOM|${lobby.roomCode}")
+                        } else {
+                            writer.send("MISMATCH")
+                        }
+                        return@thread
+                    }
+                    val token = decode(join[1]).trim()
+                    if (join.size != 4 || join[0] != "JOIN" || (!token.equals(lobby.joinToken.trim(), ignoreCase = true) && !token.equals(lobby.roomCode.trim(), ignoreCase = true))) {
+                        writer.send("ERROR|${encode("This game code has expired")}")
+                        return@thread
+                    }
+                    val playerId = decode(join[2])
+                    val playerName = decode(join[3])
+                    synchronized(this@NearbyLanHost) {
+                        lobby = coordinator.join(lobby, playerId, playerName)
+                        clients[playerId] = writer
+                        publishLobby()
+                    }
+                    try {
+                        while (running) {
+                            val parts = reader.readLine()?.split('|') ?: break
+                            if (parts.size == 5 && parts[0] == "PROFILE" && decode(parts[1]) == playerId) {
+                                val name = decode(parts[2]).trim().take(24).ifBlank { "Player" }
+                                val color = parts[3].takeUnless { value -> value == "-" }?.let(LudoColor::valueOf)
+                                val ready = parts[4].toBooleanStrictOrNull() ?: false
+                                synchronized(this@NearbyLanHost) {
+                                    lobby = rename(lobby, playerId, name)
+                                    if (color != null) lobby = coordinator.chooseColor(lobby, playerId, color)
+                                    lobby = coordinator.setReady(lobby, playerId, ready)
+                                    publishLobby()
+                                }
+                            } else if (parts.size == 2 && parts[0] == "ACTION") {
+                                NearbyGameActionCodec.decode(decode(parts[1]))?.let { action ->
+                                    onGameAction(playerId, action)
+                                }
                             }
-                        } else if (parts.size == 2 && parts[0] == "ACTION") {
-                            NearbyGameActionCodec.decode(decode(parts[1]))?.let { action ->
-                                onGameAction(playerId, action)
-                            }
+                        }
+                    } finally {
+                        clients.remove(playerId)
+                        synchronized(this@NearbyLanHost) {
+                            lobby = lobby.copy(players = lobby.players.filterNot { player -> player.id == playerId })
+                            publishLobby()
                         }
                     }
                 } finally {
-                    clients.remove(playerId)
-                    synchronized(this@NearbyLanHost) {
-                        lobby = lobby.copy(players = lobby.players.filterNot { player -> player.id == playerId })
-                        publishLobby()
-                    }
+                    clientSockets.remove(socketId)
                 }
             }
         }
@@ -149,6 +156,8 @@ class NearbyLanHost(
     override fun close() {
         running = false
         runCatching { server.close() }
+        clientSockets.values.forEach { socket -> runCatching { socket.close() } }
+        clientSockets.clear()
         clients.values.forEach { writer -> runCatching { writer.close() } }
         clients.clear()
     }

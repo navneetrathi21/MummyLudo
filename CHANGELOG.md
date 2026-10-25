@@ -51,6 +51,12 @@ All notable changes to this project will be recorded here.
   - Propagated custom player name across Home screen greeting, Match Setup, duel cards, and Nearby sessions instead of generic "Player 1".
 - **MVVM Architecture Modularization**:
   - Decoupled `MummyLudoApp.kt` into dedicated `GameViewModel` and `NearbyLobbyViewModel` components for active match state and Nearby multiplayer lobby coordination.
+- **Color Selection & Ready Toggle in Nearby Lobby (Host & Guest)**:
+  - Added interactive color pickers for both Host and Guest lobbies, showing all 4 Ludo colors (Red, Green, Yellow, Blue) and automatically disabling colors already claimed by other players or bots.
+  - Added interactive Ready toggle buttons on both screens (`"✓ Ready"` / `"Not ready"` for Host; `"I'm ready"` / `"Not ready"` for Guest).
+  - Wired real-time profile updates (`name`, `color`, `ready`) across the LAN network so player badges, color choices, and ready states update instantly for all connected peers.
+  - Host "Start game" button activates only when the lobby requirements are satisfied (`canStart`: at least 2 players, all players ready, distinct colors).
+  - Added smooth vertical scrolling to `HostLobbyScreen` to ensure the entire player roster, QR card, and Start button are fully accessible across all screen sizes.
 
 ### Fixed
 - **Nearby QR Code "Code Has Expired" Bug**:
@@ -64,8 +70,8 @@ All notable changes to this project will be recorded here.
   - When location permission is granted but Android hides the SSID (e.g. system Location toggle off), gracefully falls back to `Same Wi-Fi Network · All players must join the same Wi-Fi or hotspot`.
 
 ### Verification & Metrics
-- All 154 unit tests passing with 0 failures.
-- Whole-app line coverage reached **99.1%** (2,254 / 2,275 lines covered across 21 files, 14 files at 100.0%, all files $\ge 96.2\%$).
-- Debug APK built and verified.
+- All 155 unit tests passing with 0 failures.
+- Whole-app line coverage reached **99.1%** (2,406 / 2,427 lines covered across all 21 source files, 13 files at 100.0%, all files $\ge 96.6\%$).
+- Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 
 

@@ -29,20 +29,29 @@ class NearbyLobbyViewModelTest {
         var startedSeats: List<NearbyStartedSeat>? = null
         var lastAction: NearbyGameAction? = null
 
-        val success = vm.startHosting(
-            initialPlayerName = "Host",
-            onStarted = { startedSeats = it },
-            onGameAction = { _, action -> lastAction = action },
-        )
+        try {
+            val success = vm.startHosting(
+                initialPlayerName = "Host",
+                onStarted = { startedSeats = it },
+                onGameAction = { _, action -> lastAction = action },
+            )
 
-        assertTrue(success)
-        assertTrue(vm.isHost)
-        assertEquals(LudoColor.RED, vm.nearbyLocalColor)
-        assertNotNull(vm.hostLobby)
-        assertNotNull(vm.hostSession)
-        assertNull(vm.nearbyError)
+            assertTrue(success)
+            assertTrue(vm.isHost)
+            assertEquals(LudoColor.RED, vm.nearbyLocalColor)
+            assertNotNull(vm.hostLobby)
+            assertNotNull(vm.hostSession)
+            assertNull(vm.nearbyError)
 
-        vm.closeHost()
+            vm.updateHostProfile("Host New", LudoColor.BLUE, false)
+            assertEquals(LudoColor.BLUE, vm.nearbyLocalColor)
+            val hostPlayer = vm.hostLobby?.players?.first { it.isHost }
+            assertEquals("Host New", hostPlayer?.name)
+            assertEquals(LudoColor.BLUE, hostPlayer?.color)
+            assertFalse(hostPlayer?.ready ?: true)
+        } finally {
+            vm.closeHost()
+        }
         assertNull(vm.hostSession)
         assertNull(vm.hostLobby)
     }
@@ -111,19 +120,22 @@ class NearbyLobbyViewModelTest {
     @Test
     fun startHostingWithDefaultNameAndJoining() = runTest(testDispatcher) {
         val vm = NearbyLobbyViewModel(coordinator, this)
-        val success = vm.startHosting(
-            onStarted = {},
-            onGameAction = { _, _ -> },
-        )
-        assertTrue(success)
-        assertEquals("Player 1", vm.hostLobby?.players?.firstOrNull()?.name)
+        try {
+            val success = vm.startHosting(
+                onStarted = {},
+                onGameAction = { _, _ -> },
+            )
+            assertTrue(success)
+            assertEquals("Player 1", vm.hostLobby?.players?.firstOrNull()?.name)
 
-        // Exercise startJoining default initialName
-        val payload = JoinPayload("session-test", "127.0.0.1", 49152, "token")
-        vm.startJoining(payload = payload, onStarted = { _, _ -> })
-        assertNotNull(vm.clientSession)
-        vm.updateGuestProfile("Guest", LudoColor.BLUE, true)
-        vm.sendClientAction(NearbyGameAction.Roll)
-        vm.closeAllSessions()
+            // Exercise startJoining default initialName
+            val payload = JoinPayload("session-test", "127.0.0.1", 49152, "token")
+            vm.startJoining(payload = payload, onStarted = { _, _ -> })
+            assertNotNull(vm.clientSession)
+            vm.updateGuestProfile("Guest", LudoColor.BLUE, true)
+            vm.sendClientAction(NearbyGameAction.Roll)
+        } finally {
+            vm.closeAllSessions()
+        }
     }
 }

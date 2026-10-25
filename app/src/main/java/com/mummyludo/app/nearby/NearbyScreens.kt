@@ -3,9 +3,13 @@ package com.mummyludo.app.nearby
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import com.mummyludo.app.game.LudoColor
 import kotlinx.coroutines.launch
 
 private val NearbyInk = Color(0xFF20312B)
@@ -53,10 +58,22 @@ fun HostLobbyScreen(
     onBack: () -> Unit,
     onOpenWifiSettings: () -> Unit,
     onOpenAppSettings: () -> Unit = onOpenWifiSettings,
+    onProfile: (String, LudoColor?, Boolean) -> Unit = { _, _, _ -> },
     onStart: () -> Unit,
 ) {
     val joinCode = hostAddress?.let { JoinPayloadCodec.encode(JoinPayload(lobby.sessionId, it, 42871, lobby.joinToken)) }
-    Column(Modifier.fillMaxSize().background(NearbyCream).padding(20.dp)) {
+    val hostPlayer = lobby.players.firstOrNull { it.isHost }
+    val selectedColor = hostPlayer?.color
+    val isReady = hostPlayer?.ready ?: true
+    val unavailableColors = lobby.players.filterNot { it.isHost }.mapNotNull { it.color }.toSet() + lobby.botColors
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(NearbyCream)
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("‹ Close") }
             Text("Host lobby", fontSize = 25.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
@@ -112,22 +129,84 @@ fun HostLobbyScreen(
             }
         }
         Spacer(Modifier.height(14.dp))
-        Text("Players", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Text("Players", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
+        Spacer(Modifier.height(6.dp))
         lobby.players.forEach { player ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(14.dp).background(player.color.colorOrMuted(), RoundedCornerShape(7.dp)))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(player.name, fontWeight = FontWeight.Medium)
-                        Text(player.color?.label ?: "Choosing color", color = NearbyInk.copy(.58f))
+            if (player.isHost) {
+                Card(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("host_profile_card"),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(14.dp).background(player.color.colorOrMuted(), RoundedCornerShape(7.dp)))
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text(player.name, fontWeight = FontWeight.Medium, color = NearbyInk)
+                                    Text(player.color?.label ?: "Choosing color", color = NearbyInk.copy(.58f), fontSize = 12.sp)
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { onProfile(player.name, player.color, !player.ready) },
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = if (player.ready) NearbyGreen else NearbyInk.copy(.6f),
+                                ),
+                                modifier = Modifier.testTag("host_ready_button"),
+                            ) {
+                                Text(if (player.ready) "✓ Ready" else "Not ready", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            LudoColor.entries.forEach { color ->
+                                val enabled = color !in unavailableColors
+                                val isSelected = player.color == color
+                                Box(
+                                    Modifier
+                                        .size(38.dp)
+                                        .background(color.colorOrMuted().copy(alpha = if (enabled) 1f else .25f), CircleShape)
+                                        .clickable(enabled = enabled) { onProfile(player.name, color, player.ready) }
+                                        .testTag("host_color_${color.name.lowercase()}"),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (isSelected) {
+                                        Text("✓", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    Text(if (player.ready) "Ready" else "Waiting", color = if (player.ready) NearbyGreen else NearbyInk.copy(.45f))
+                }
+            } else {
+                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(14.dp).background(player.color.colorOrMuted(), RoundedCornerShape(7.dp)))
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(player.name, fontWeight = FontWeight.Medium, color = NearbyInk)
+                            Text(player.color?.label ?: "Choosing color", color = NearbyInk.copy(.58f), fontSize = 12.sp)
+                        }
+                        Text(if (player.ready) "Ready" else "Waiting", color = if (player.ready) NearbyGreen else NearbyInk.copy(.45f), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    }
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
-        Button(onClick = onStart, enabled = lobby.canStart, modifier = Modifier.fillMaxWidth().height(58.dp).testTag("host_start_game"), colors = ButtonDefaults.buttonColors(containerColor = NearbyGreen), shape = RoundedCornerShape(18.dp)) {
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = onStart,
+            enabled = lobby.canStart,
+            modifier = Modifier.fillMaxWidth().height(58.dp).testTag("host_start_game"),
+            colors = ButtonDefaults.buttonColors(containerColor = NearbyGreen),
+            shape = RoundedCornerShape(18.dp),
+        ) {
             Text(if (lobby.canStart) "Start game" else "Waiting for players", fontSize = 17.sp)
         }
     }

@@ -192,6 +192,7 @@ fun MummyLudoApp(
                 },
                 onOpenWifiSettings = onOpenWifiSettings,
                 onOpenAppSettings = onOpenAppSettings,
+                onProfile = { name, color, ready -> nearbyVm.updateHostProfile(name, color, ready) },
                 onStart = { nearbyVm.hostSession?.startGame() },
             )
             Page.JOIN_NEARBY -> JoinNearbyScreen(
@@ -202,6 +203,7 @@ fun MummyLudoApp(
                 },
                 onOpenWifiSettings = onOpenWifiSettings,
                 onScan = onScanGameCode,
+                onResolveManualCode = { code -> discoverHostByRoomCode(code, localWifiAddress()) },
                 onJoin = { payload ->
                     onClearScannedCode()
                     nearbyVm.startJoining(

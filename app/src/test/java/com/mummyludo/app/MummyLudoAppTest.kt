@@ -164,6 +164,9 @@ class MummyLudoAppTest {
         compose.onNodeWithTag("nearby_host").performClick()
         compose.onNodeWithText("Host lobby").assertIsDisplayed()
         compose.onNodeWithText("Family Wi-Fi").assertIsDisplayed()
+        compose.onNodeWithTag("host_profile_card").assertIsDisplayed()
+        compose.onNodeWithTag("host_color_blue").performClick()
+        compose.onNodeWithTag("host_ready_button").performClick()
         compose.onNodeWithText("Share or change Wi-Fi").performClick()
         assertEquals(1, wifiRequests)
         assertEquals(1, wifiSettings)
@@ -191,6 +194,8 @@ class MummyLudoAppTest {
         compose.onNodeWithTag("host_location_permission_notice").assertIsDisplayed()
         compose.onNodeWithTag("host_enable_location_button").performClick()
         assertEquals(1, appSettings)
+        compose.onNodeWithText("‹ Close").performClick()
+        compose.onNodeWithText("Play nearby").assertIsDisplayed()
     }
 
     @Test

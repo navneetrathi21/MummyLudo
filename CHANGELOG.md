@@ -60,11 +60,12 @@ All notable changes to this project will be recorded here.
 - **Host Screen Wi-Fi Display & SSID Detection**:
   - Restored real Wi-Fi SSID detection on Android 12+ by querying `WifiManager.connectionInfo` directly and adding `ACCESS_COARSE_LOCATION` to the manifest.
   - When the Wi-Fi name is known, displays the actual network name (e.g., `Family Wi-Fi · All players must join this Wi-Fi`).
-  - When Android hides the SSID (e.g. Location toggle off), gracefully falls back to `Same Wi-Fi Network · All players must join the same Wi-Fi or hotspot` without confusing "Wi-Fi name is hidden by Android" warnings.
+  - When location permission is missing, displays a clear explanation (`Location permission is needed to show the Wi-Fi name.`) and provides an `"Enable location in Settings"` button taking the user directly to the app's permission settings in Android system settings.
+  - When location permission is granted but Android hides the SSID (e.g. system Location toggle off), gracefully falls back to `Same Wi-Fi Network · All players must join the same Wi-Fi or hotspot`.
 
 ### Verification & Metrics
-- All 151 unit tests passing with 0 failures.
-- Whole-app line coverage reached **99.1%** (2,209 / 2,229 lines covered across 21 files, 14 files at 100.0%, all files $\ge 96.6\%$).
+- All 154 unit tests passing with 0 failures.
+- Whole-app line coverage reached **99.1%** (2,254 / 2,275 lines covered across 21 files, 14 files at 100.0%, all files $\ge 96.2\%$).
 - Debug APK built and verified.
 
 

@@ -83,6 +83,31 @@ class NearbyScreensTest {
     }
 
     @Test
+    fun hostLobbyShowsLocationPermissionNoticeAndOpensSettingsWhenPermissionMissing() {
+        var openedSettings = false
+        val lobby = lobby(
+            NearbyPlayer("host", "Host", true, LudoColor.RED, true),
+        )
+        compose.setContent {
+            HostLobbyScreen(
+                lobby = lobby,
+                hostAddress = null,
+                wifiName = null,
+                hasLocationPermission = false,
+                onBack = {},
+                onOpenWifiSettings = {},
+                onOpenAppSettings = { openedSettings = true },
+                onStart = {},
+            )
+        }
+
+        compose.onNodeWithTag("host_location_permission_notice").assertIsDisplayed()
+        compose.onNodeWithText("Location permission is needed to show the Wi-Fi name.").assertIsDisplayed()
+        compose.onNodeWithTag("host_enable_location_button").assertIsDisplayed().performClick()
+        assertTrue(openedSettings)
+    }
+
+    @Test
     fun readyHostLobbyShowsQrEveryColorAndStarts() {
         var started = false
         val lobby = lobby(

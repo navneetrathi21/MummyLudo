@@ -6,7 +6,7 @@ Last completed measurement: 2026-10-25, using `./gradlew testDebugUnitTest creat
 
 | Area | Source file | Line coverage | Being worked on? | Owner | Remarks |
 | --- | --- | ---: | --- | --- | --- |
-| Overall | All app source | 🟢 99.1% (2,214/2,235) | No | — | 14 of 21 source files at 100.00%; all 21 files $\ge 96.3\%$ |
+| Overall | All app source | 🟢 99.1% (2,254/2,275) | No | — | 14 of 21 source files at 100.00%; all 21 files $\ge 96.2\%$ |
 | Game | `game/LudoEngine.kt` | 🟢 99.6% (261/262) | Done | Codex / Antigravity | Turn loop, bot heuristics, bank orders, captures, arrow traversals, and default parameters pass |
 | Game | `game/DiceRollPath.kt` | 🟢 100.0% (26/26) | Done | Codex | Deterministic roll calculations pass |
 | ViewModels | `viewmodel/GameViewModel.kt` | 🟢 98.4% (62/63) | Done | Antigravity | Active match state, save/restore, auto-play simulation coroutines, and error handling pass |
@@ -15,10 +15,10 @@ Last completed measurement: 2026-10-25, using `./gradlew testDebugUnitTest creat
 | Nearby | `nearby/NearbyGameProtocol.kt` | 🟢 100.0% (49/49) | Done | Codex | 96.1% branch coverage; positive and negative protocol tests pass |
 | Nearby | `nearby/NearbyLan.kt` | 🟢 100.0% (215/215) | Done | Codex / Antigravity | LAN server, client sockets, 4-digit room code matching, CHECK probe, and LAN subnet discovery pass |
 | Nearby UI | `nearby/GuestLobbyScreen.kt` | 🟢 100.0% (58/58) | Done | Codex | 80.2% branch coverage; connection/error, unavailable-color, name-limit, and readiness tests pass |
-| Nearby UI | `nearby/NearbyScreens.kt` | 🟢 99.4% (177/178) | Done | Codex / Antigravity | Host lobby with 4-digit code display, Join nearby with manual 4-digit input & camera scanner pass |
+| Nearby UI | `nearby/NearbyScreens.kt` | 🟢 99.4% (177/178) | Done | Codex / Antigravity | Host lobby with 4-digit code, location permission notice & Settings shortcut, Join nearby pass |
 | App UI | `AppTheme.kt` | 🟢 100.0% (17/17) | Done | Codex | Approved palette and themed-content rendering test passes |
-| App UI | `MainActivity.kt` | 🟢 96.3% (130/135) | Done | Codex / Antigravity | Lifecycle, permissions, direct Wi-Fi SSID detection, Play update, scanner, clearScannedGameCode pass |
-| App UI | `MummyLudoApp.kt` | 🟢 96.6% (197/204) | Done | Antigravity | Priority-based Wi-Fi interface detection, stale scanned code clearing, manual code join navigation |
+| App UI | `MainActivity.kt` | 🟢 96.2% (126/131) | Done | Codex / Antigravity | Lifecycle, permissions, direct Wi-Fi SSID detection, location permission check, App Settings launcher pass |
+| App UI | `MummyLudoApp.kt` | 🟢 96.6% (196/203) | Done | Antigravity | Priority-based Wi-Fi interface detection, location permission propagation, Settings shortcut |
 | Welcome UI | `WelcomeScreen.kt` | 🟢 100.0% (67/67) | Done | Antigravity | First-time onboarding screen, logo, interactive name input, validation, continue button |
 | HomeSetupScreens | `HomeSetupScreens.kt` | 🟢 100.0% (105/105) | Done | Codex / Antigravity | Personalized greeting banner, setup limits, reverse duel, continue-game, and start-game flows pass |
 | App UI | `GameScreen.kt` | 🟢 98.9% (275/278) | Done | Codex / Antigravity | Local/nearby rolls, bot choices, token animation, controls, and confetti canvas pass |
@@ -29,4 +29,4 @@ Last completed measurement: 2026-10-25, using `./gradlew testDebugUnitTest creat
 | Storage | `storage/GameDatabaseHelper.kt` | 🟢 100.0% (45/45) | Done | Antigravity | SQLite saved_match table creation, CRUD, versioning, onUpgrade, default parameter overloads pass |
 | Storage | `storage/GameRepository.kt` | 🟢 100.0% (15/15) | Done | Antigravity | SqliteGameRepository save/load/clear/hasActive and default revision overload pass |
 
-Every source file in the repository has achieved $\ge 96.6\%$ line coverage, with 14 files at 100.00%. Total codebase line coverage: 99.1%.
+Every source file in the repository has achieved $\ge 96.2\%$ line coverage, with 14 files at 100.00%. Total codebase line coverage: 99.1%.

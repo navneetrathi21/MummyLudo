@@ -26,7 +26,9 @@ fun MummyLudoApp(
     gameViewModel: GameViewModel? = null,
     nearbyViewModel: NearbyLobbyViewModel? = null,
     onOpenWifiSettings: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = onOpenWifiSettings,
     wifiName: String? = null,
+    hasLocationPermission: Boolean = true,
     scannedGameCode: String = "",
     onClearScannedCode: () -> Unit = {},
     onRequestWifiPermission: () -> Unit = {},
@@ -183,11 +185,13 @@ fun MummyLudoApp(
                 lobby = nearbyVm.hostLobby ?: coordinator.createHost(playerName.ifBlank { "Player 1" }).also { nearbyVm.hostLobby = it },
                 hostAddress = remember(page) { localWifiAddress() },
                 wifiName = wifiName,
+                hasLocationPermission = hasLocationPermission,
                 onBack = {
                     nearbyVm.closeHost()
                     page = Page.NEARBY
                 },
                 onOpenWifiSettings = onOpenWifiSettings,
+                onOpenAppSettings = onOpenAppSettings,
                 onStart = { nearbyVm.hostSession?.startGame() },
             )
             Page.JOIN_NEARBY -> JoinNearbyScreen(

@@ -174,6 +174,26 @@ class MummyLudoAppTest {
     }
 
     @Test
+    fun nearbyHostShowsLocationNoticeAndOpensAppSettingsWhenPermissionMissing() {
+        var appSettings = 0
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    wifiName = null,
+                    hasLocationPermission = false,
+                    onOpenAppSettings = { appSettings++ },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("home_play_nearby").performClick()
+        compose.onNodeWithTag("nearby_host").performClick()
+        compose.onNodeWithTag("host_location_permission_notice").assertIsDisplayed()
+        compose.onNodeWithTag("host_enable_location_button").performClick()
+        assertEquals(1, appSettings)
+    }
+
+    @Test
     fun nearbyJoinInvokesScannerSettingsAndReportsUnreachableHost() {
         var scans = 0
         var wifiSettings = 0

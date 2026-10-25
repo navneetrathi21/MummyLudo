@@ -49,8 +49,10 @@ fun HostLobbyScreen(
     lobby: NearbyLobbyState,
     hostAddress: String?,
     wifiName: String? = null,
+    hasLocationPermission: Boolean = true,
     onBack: () -> Unit,
     onOpenWifiSettings: () -> Unit,
+    onOpenAppSettings: () -> Unit = onOpenWifiSettings,
     onStart: () -> Unit,
 ) {
     val joinCode = hostAddress?.let { JoinPayloadCodec.encode(JoinPayload(lobby.sessionId, it, 42871, lobby.joinToken)) }
@@ -63,11 +65,34 @@ fun HostLobbyScreen(
         Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(wifiName ?: "Same Wi-Fi Network", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.testTag("host_wifi_name"))
-                Text(
-                    if (wifiName != null) "All players must join this Wi-Fi" else "All players must join the same Wi-Fi or hotspot",
-                    color = NearbyInk.copy(.58f),
-                    fontSize = 13.sp,
-                )
+                if (wifiName != null) {
+                    Text(
+                        "All players must join this Wi-Fi",
+                        color = NearbyInk.copy(.58f),
+                        fontSize = 13.sp,
+                    )
+                } else if (!hasLocationPermission) {
+                    Text(
+                        "Location permission is needed to show the Wi-Fi name.",
+                        color = NearbyInk.copy(.58f),
+                        fontSize = 13.sp,
+                        modifier = Modifier.testTag("host_location_permission_notice"),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = onOpenAppSettings,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.testTag("host_enable_location_button"),
+                    ) {
+                        Text("Enable location in Settings", fontSize = 13.sp)
+                    }
+                } else {
+                    Text(
+                        "All players must join the same Wi-Fi or hotspot",
+                        color = NearbyInk.copy(.58f),
+                        fontSize = 13.sp,
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 if (joinCode != null) {
                     QrCode(joinCode, Modifier.size(175.dp).testTag("host_game_qr"))

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -46,6 +47,8 @@ class MainActivity : ComponentActivity() {
         private set
     internal var wifiName by mutableStateOf<String?>(null)
         private set
+    internal var hasLocationPermission by mutableStateOf(false)
+        private set
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
         ::handleCameraPermissionResult,
@@ -61,6 +64,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hasLocationPermission = checkLocationPermission()
         refreshWifiName()
         appUpdateManager = appUpdateManagerOverride ?: AppUpdateManagerFactory.create(this)
         appUpdateManager.registerListener(updateListener)
@@ -80,7 +84,9 @@ class MainActivity : ComponentActivity() {
                     MummyLudoApp(
                         providedEngine = engine,
                         onOpenWifiSettings = { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) },
+                        onOpenAppSettings = ::openAppSettings,
                         wifiName = wifiName,
+                        hasLocationPermission = hasLocationPermission,
                         scannedGameCode = scannedGameCode,
                         onClearScannedCode = ::clearScannedGameCode,
                         onRequestWifiPermission = { requestWifiPermission() },
@@ -101,10 +107,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        hasLocationPermission = checkLocationPermission()
         refreshWifiName()
         if (::appUpdateManager.isInitialized) {
             checkForDownloadedUpdate()
         }
+    }
+
+    internal fun checkLocationPermission(): Boolean =
+        checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    internal fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+        }
+        startActivity(intent)
     }
 
     internal fun requestCameraAndScan() {
@@ -130,6 +147,7 @@ class MainActivity : ComponentActivity() {
     }
 
     internal fun handleWifiPermissionResult(@Suppress("UNUSED_PARAMETER") result: Map<String, Boolean> = emptyMap()) {
+        hasLocationPermission = checkLocationPermission()
         refreshWifiName()
     }
 

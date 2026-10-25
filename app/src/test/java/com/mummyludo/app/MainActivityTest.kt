@@ -9,6 +9,7 @@ import android.net.NetworkInfo
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Looper
+import android.provider.Settings
 import androidx.activity.result.ActivityResult
 import com.google.android.play.core.appupdate.testing.FakeAppUpdateManager
 import com.google.android.play.core.install.model.InstallStatus
@@ -192,6 +193,25 @@ class MainActivityTest {
         activity.dismissReadyUpdate()
         fake.downloadCompletes()
         assertFalse(activity.updateReadyToInstall)
+    }
+
+    @Test
+    fun locationPermissionAndSettingsShortcutWorkCorrectly() {
+        val activity = createActivity(fakeManager().apply { setUpdateNotAvailable() })
+        val application = RuntimeEnvironment.getApplication()
+
+        shadowOf(application).denyPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        assertFalse(activity.checkLocationPermission())
+
+        activity.openAppSettings()
+        val nextIntent = shadowOf(activity).nextStartedActivity
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, nextIntent.action)
+        assertEquals("package:${activity.packageName}", nextIntent.dataString)
+
+        shadowOf(application).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        assertTrue(activity.checkLocationPermission())
+        activity.handleWifiPermissionResult()
+        assertTrue(activity.hasLocationPermission)
     }
 
     private fun fakeManager() = FakeAppUpdateManager(RuntimeEnvironment.getApplication())

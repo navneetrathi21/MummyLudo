@@ -68,9 +68,12 @@ All notable changes to this project will be recorded here.
   - When the Wi-Fi name is known, displays the actual network name (e.g., `Family Wi-Fi · All players must join this Wi-Fi`).
   - When location permission is missing, displays a clear explanation (`Location permission is needed to show the Wi-Fi name.`) and provides an `"Enable location in Settings"` button taking the user directly to the app's permission settings in Android system settings.
   - When location permission is granted but Android hides the SSID (e.g. system Location toggle off), gracefully falls back to `Same Wi-Fi Network · All players must join the same Wi-Fi or hotspot`.
+- **End-to-End Playable Server Verification**:
+  - Added comprehensive LAN socket server integration test verifying multi-turn gameplay across `NearbyLanHost` and `NearbyLanClient` with alternating turns, socket actions (`Roll`, `SelectDie`, `Move`), server-side action validation (`isAuthorizedGameAction`), and synchronized state resolution across peers.
+  - Verified full UI-level guest turn dispatch over the network in `MummyLudoAppTest`.
 
 ### Verification & Metrics
-- All 155 unit tests passing with 0 failures.
+- All 156 unit tests passing with 0 failures (100% pass rate).
 - Whole-app line coverage reached **99.1%** (2,406 / 2,427 lines covered across all 21 source files, 13 files at 100.0%, all files $\ge 96.6\%$).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 

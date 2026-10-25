@@ -390,6 +390,23 @@ class MummyLudoAppTest {
             client.sendGameAction(NearbyGameAction.Roll)
             compose.onNodeWithTag("game_roll_action").performClick()
             compose.waitUntil(timeoutMillis = 8_000) { guestEvent.get()?.rollValue == 4 }
+
+            // Turn passes to Yellow (Guest)
+            compose.waitUntil(timeoutMillis = 8_000) {
+                compose.onAllNodesWithText("Guest · Yellow").fetchSemanticsNodes().isNotEmpty()
+            }
+
+            // Yellow (Guest) sends roll over network to host server
+            client.sendGameAction(NearbyGameAction.Roll)
+            compose.waitUntil(timeoutMillis = 8_000) { guestEvent.get()?.sequence == 2L }
+            assertEquals(NearbyGameAction.Roll, guestEvent.get()?.action)
+            assertEquals(4, guestEvent.get()?.rollValue)
+
+            // Turn passes back to Red (Host)
+            compose.waitUntil(timeoutMillis = 8_000) {
+                compose.onAllNodesWithText("Player 1 · Red").fetchSemanticsNodes().isNotEmpty()
+            }
+
             compose.onNodeWithText("Close").performClick()
             compose.onNodeWithText("Close game").performClick()
             compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()

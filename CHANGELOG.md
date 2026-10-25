@@ -37,3 +37,30 @@ All notable changes to this project will be recorded here.
 - Added JVM Compose coverage for complete application navigation, setup constraints, saved-game continuation and invalid-save recovery, local roll persistence, automatic completion, nearby host and guest cleanup, successful loopback joining, synchronized start/events, and host-authoritative action handling. `MummyLudoApp.kt` now has 96.3% line coverage (211/219), while `HomeSetupScreens.kt` reached 100% (99/99). Overall measured line coverage is 80.6%; `GameScreen.kt` is the next active target.
 - Added JVM Compose coverage for GameScreen human and bot turns, local and Nearby dice/token actions, one-square-at-a-time movement, dice-bank selection, completion controls, and continuous confetti. Extracted deterministic confetti geometry from drawing code for focused testing. `GameScreen.kt` now has 96.4% line coverage (266/276) and 80.7% branch coverage; overall measured line coverage is 85.8%. `LudoBoard.kt` is the next active target.
 
+## [0.2.3] - 2026-10-25
+### Added
+- **4-Digit Game Code**:
+  - Replaced long session and token hex strings with clean, memorable 4-digit numeric room codes (e.g., `4821`).
+  - Prominently displayed the 4-digit code on the Host screen directly below the QR code for easy verbal sharing.
+- **Manual 4-Digit Code Entry & Subnet Discovery**:
+  - Added a 4-digit numeric code input field and "Join with code" action to `JoinNearbyScreen`.
+  - Implemented automatic zero-configuration LAN discovery (`discoverHostByRoomCode` using lightweight `CHECK` socket probes) to locate the host's IP on the local Wi-Fi network without requiring camera access.
+  - Scanning via camera auto-populates the 4-digit code and presents a one-tap confirmation card.
+- **First-Time Welcome Screen & Player Name Onboarding**:
+  - Added `WelcomeScreen` on first app launch prompting for player name, backed by Android `SharedPreferences` (`UserPreferences`).
+  - Propagated custom player name across Home screen greeting, Match Setup, duel cards, and Nearby sessions instead of generic "Player 1".
+- **MVVM Architecture Modularization**:
+  - Decoupled `MummyLudoApp.kt` into dedicated `GameViewModel` and `NearbyLobbyViewModel` components for active match state and Nearby multiplayer lobby coordination.
+
+### Fixed
+- **Nearby QR Code "Code Has Expired" Bug**:
+  - Resolved false expiration errors caused by stale scanned QR codes persisting across navigation by introducing `clearScannedGameCode()` / `onClearScannedCode`.
+  - Prioritized local Wi-Fi (`wlan0`) and hotspot (`ap0`) interfaces over cellular data (`rmnet`) in `localWifiAddress()`, preventing unroutable cellular IPs from being encoded into join QR codes.
+  - Enhanced `NearbyLanHost` to accept both 4-digit room codes and session tokens with clean whitespace trimming.
+
+### Verification & Metrics
+- All 151 unit tests passing with 0 failures.
+- Whole-app line coverage reached **99.1%** (2,209 / 2,229 lines covered across 21 files, 14 files at 100.0%, all files $\ge 96.6\%$).
+- Debug APK built and verified.
+
+

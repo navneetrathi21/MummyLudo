@@ -48,7 +48,7 @@ fun NearbyEntryScreen(onBack: () -> Unit, onHost: () -> Unit, onJoin: () -> Unit
 fun HostLobbyScreen(
     lobby: NearbyLobbyState,
     hostAddress: String?,
-    wifiName: String?,
+    wifiName: String? = null,
     onBack: () -> Unit,
     onOpenWifiSettings: () -> Unit,
     onStart: () -> Unit,
@@ -62,9 +62,9 @@ fun HostLobbyScreen(
         Spacer(Modifier.height(10.dp))
         Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(wifiName ?: "Connected Wi-Fi", fontWeight = FontWeight.SemiBold)
+                Text("Same Wi-Fi Network", fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (wifiName == null) "Wi-Fi name is hidden by Android" else "All players must join this Wi-Fi",
+                    "All players must join the same Wi-Fi or hotspot",
                     color = NearbyInk.copy(.58f),
                 )
                 Spacer(Modifier.height(10.dp))

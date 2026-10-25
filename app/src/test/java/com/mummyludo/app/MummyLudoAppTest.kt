@@ -163,7 +163,7 @@ class MummyLudoAppTest {
         compose.onNodeWithTag("home_play_nearby").performClick()
         compose.onNodeWithTag("nearby_host").performClick()
         compose.onNodeWithText("Host lobby").assertIsDisplayed()
-        compose.onNodeWithText("Family Wi-Fi").assertIsDisplayed()
+        compose.onNodeWithText("Same Wi-Fi Network").assertIsDisplayed()
         compose.onNodeWithText("Share or change Wi-Fi").performClick()
         assertEquals(1, wifiRequests)
         assertEquals(1, wifiSettings)

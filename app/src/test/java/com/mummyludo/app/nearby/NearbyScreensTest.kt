@@ -68,8 +68,8 @@ class NearbyScreensTest {
             )
         }
 
-        compose.onNodeWithText("Connected Wi-Fi").assertIsDisplayed()
-        compose.onNodeWithText("Wi-Fi name is hidden by Android").assertIsDisplayed()
+        compose.onNodeWithText("Same Wi-Fi Network").assertIsDisplayed()
+        compose.onNodeWithText("All players must join the same Wi-Fi or hotspot").assertIsDisplayed()
         compose.onNodeWithText("Choosing color").assertExists()
         compose.onNodeWithText("Waiting").assertExists()
         compose.onNodeWithTag("host_game_qr").assertDoesNotExist()
@@ -102,8 +102,8 @@ class NearbyScreensTest {
             )
         }
 
-        compose.onNodeWithText("Family Wi-Fi").assertIsDisplayed()
-        compose.onNodeWithText("All players must join this Wi-Fi").assertIsDisplayed()
+        compose.onNodeWithText("Same Wi-Fi Network").assertIsDisplayed()
+        compose.onNodeWithText("All players must join the same Wi-Fi or hotspot").assertIsDisplayed()
         compose.onNodeWithTag("host_game_qr").assertIsDisplayed()
         compose.onNodeWithContentDescription("Game join QR code").assertIsDisplayed()
         LudoColor.entries.forEach { compose.onNodeWithText(it.label).assertExists() }

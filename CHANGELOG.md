@@ -57,6 +57,8 @@ All notable changes to this project will be recorded here.
   - Resolved false expiration errors caused by stale scanned QR codes persisting across navigation by introducing `clearScannedGameCode()` / `onClearScannedCode`.
   - Prioritized local Wi-Fi (`wlan0`) and hotspot (`ap0`) interfaces over cellular data (`rmnet`) in `localWifiAddress()`, preventing unroutable cellular IPs from being encoded into join QR codes.
   - Enhanced `NearbyLanHost` to accept both 4-digit room codes and session tokens with clean whitespace trimming.
+- **Host Screen Wi-Fi Display**:
+  - Removed confusing "Wi-Fi name is hidden by Android" / Wi-Fi SSID text on the Host lobby screen, replacing it with a clean and clear instruction: "Same Wi-Fi Network · All players must join the same Wi-Fi or hotspot".
 
 ### Verification & Metrics
 - All 151 unit tests passing with 0 failures.

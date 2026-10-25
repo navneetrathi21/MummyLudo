@@ -13,6 +13,11 @@ import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.withContext
 
 data class NearbyStartedSeat(val color: LudoColor, val name: String, val bot: Boolean = false)
 
@@ -22,10 +27,11 @@ class NearbyLanHost(
     private val onLobby: (NearbyLobbyState) -> Unit,
     private val onStarted: (List<NearbyStartedSeat>) -> Unit,
     private val onGameAction: (String, NearbyGameAction) -> Unit = { _, _ -> },
+    val port: Int = 42871,
 ) : Closeable {
     private val server = ServerSocket().apply {
         reuseAddress = true
-        bind(InetSocketAddress(42871))
+        bind(InetSocketAddress(port))
     }
     private val clients = ConcurrentHashMap<String, BufferedWriter>()
     @Volatile private var lobby = initialLobby
@@ -43,7 +49,17 @@ class NearbyLanHost(
                 val reader = BufferedReader(InputStreamReader(it.getInputStream()))
                 val writer = BufferedWriter(OutputStreamWriter(it.getOutputStream()))
                 val join = reader.readLine()?.split('|') ?: return@thread
-                if (join.size != 4 || join[0] != "JOIN" || decode(join[1]) != lobby.joinToken) {
+                if (join.size >= 2 && join[0] == "CHECK") {
+                    val requested = join[1].trim()
+                    if (requested.equals(lobby.joinToken.trim(), ignoreCase = true) || requested.equals(lobby.roomCode.trim(), ignoreCase = true)) {
+                        writer.send("ROOM|${lobby.roomCode}")
+                    } else {
+                        writer.send("MISMATCH")
+                    }
+                    return@thread
+                }
+                val token = decode(join[1]).trim()
+                if (join.size != 4 || join[0] != "JOIN" || (!token.equals(lobby.joinToken.trim(), ignoreCase = true) && !token.equals(lobby.roomCode.trim(), ignoreCase = true))) {
                     writer.send("ERROR|${encode("This game code has expired")}")
                     return@thread
                 }
@@ -236,3 +252,64 @@ private fun BufferedWriter.send(message: String) {
         flush()
     }
 }
+
+suspend fun discoverHostByRoomCode(
+    roomCode: String,
+    localIp: String? = null,
+    port: Int = 42871,
+    subnetRange: IntProgression = 1..254,
+    ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+): JoinPayload? = withContext(ioDispatcher) {
+    val cleanCode = roomCode.trim()
+    if (cleanCode.length != 4 || !cleanCode.all { it.isDigit() }) return@withContext null
+
+    val priorityIps = listOfNotNull("127.0.0.1".takeIf { localIp == null || localIp == "127.0.0.1" }, localIp).distinct()
+    for (ip in priorityIps) {
+        if (checkHost(ip, port, cleanCode)) {
+            return@withContext JoinPayload(
+                sessionId = cleanCode,
+                hostAddress = ip,
+                port = port,
+                joinToken = cleanCode,
+            )
+        }
+    }
+
+    if (localIp != null && localIp.count { it == '.' } == 3) {
+        val subnetPrefix = localIp.substringBeforeLast('.') + "."
+        val foundIp = subnetRange.map { i -> "$subnetPrefix$i" }
+            .filterNot { it in priorityIps }
+            .map { ip ->
+                async {
+                    if (checkHost(ip, port, cleanCode, timeoutMs = 200)) ip else null
+                }
+            }
+            .awaitAll()
+            .firstOrNull { it != null }
+
+        if (foundIp != null) {
+            return@withContext JoinPayload(
+                sessionId = cleanCode,
+                hostAddress = foundIp,
+                port = port,
+                joinToken = cleanCode,
+            )
+        }
+    }
+
+    null
+}
+
+internal fun checkHost(ip: String, port: Int, roomCode: String, timeoutMs: Int = 200): Boolean = runCatching {
+    Socket().use { socket ->
+        socket.setSoLinger(true, 0)
+        socket.connect(InetSocketAddress(ip, port), timeoutMs)
+        socket.soTimeout = timeoutMs
+        val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream()))
+        val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
+        writer.write("CHECK|$roomCode\n")
+        writer.flush()
+        val response = reader.readLine()
+        response != null && response.trim() == "ROOM|$roomCode"
+    }
+}.getOrDefault(false)

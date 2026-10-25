@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -446,6 +447,28 @@ class MummyLudoAppTest {
         compose.onNodeWithTag("welcome_screen").assertIsDisplayed()
         compose.runOnIdle { backDispatcher.onBackPressed() }
         assertEquals(1, exits)
+    }
+
+    @Test
+    fun joinNearbyAllowsManual4DigitCodeEntry() {
+        var clearCount = 0
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedRepository = RecordingRepository(),
+                    onClearScannedCode = { clearCount++ },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("home_play_nearby").performClick()
+        compose.onNodeWithTag("nearby_join").performClick()
+        assertEquals(1, clearCount)
+        compose.onNodeWithTag("nearby_manual_code_input").assertIsDisplayed()
+        compose.onNodeWithTag("nearby_join_manual_button").assertIsNotEnabled()
+
+        compose.onNodeWithTag("nearby_manual_code_input").performTextInput("1234")
+        compose.onNodeWithTag("nearby_join_manual_button").assertIsEnabled()
     }
 
     private class FakeUserPreferences(

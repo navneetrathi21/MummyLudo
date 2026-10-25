@@ -52,10 +52,10 @@ object JoinPayloadCodec {
         val port = values.getValue("port").toInt()
         require(port in 1..65535)
         JoinPayload(
-            sessionId = values.getValue("session").takeIf { it.length in 8..80 } ?: error("Invalid session"),
+            sessionId = values.getValue("session").takeIf { it.length in 4..80 } ?: error("Invalid session"),
             hostAddress = values.getValue("host").takeIf { it.length in 3..255 } ?: error("Invalid host"),
             port = port,
-            joinToken = values.getValue("token").takeIf { it.length in 12..200 } ?: error("Invalid token"),
+            joinToken = values.getValue("token").takeIf { it.length in 4..200 } ?: error("Invalid token"),
             protocolVersion = version,
         )
     }.getOrNull()
@@ -79,6 +79,7 @@ data class NearbyLobbyState(
     val joinToken: String,
     val players: List<NearbyPlayer>,
     val botColors: Set<LudoColor> = emptySet(),
+    val roomCode: String = sessionId.take(4),
 ) {
     val canStart: Boolean
         get() = players.size >= 2 && players.all { it.ready && it.color != null } &&
@@ -88,9 +89,11 @@ data class NearbyLobbyState(
 class NearbyLobbyCoordinator(private val random: SecureRandom = SecureRandom()) {
     fun createHost(name: String): NearbyLobbyState {
         val sessionId = randomHex(12)
+        val joinToken = randomHex(24)
+        val code = generateRoomCode(joinToken)
         return NearbyLobbyState(
             sessionId = sessionId,
-            joinToken = randomHex(24),
+            joinToken = joinToken,
             players = listOf(
                 NearbyPlayer(
                     id = "host-$sessionId",
@@ -100,7 +103,17 @@ class NearbyLobbyCoordinator(private val random: SecureRandom = SecureRandom()) 
                     ready = true,
                 ),
             ),
+            roomCode = code,
         )
+    }
+
+    fun generateRoomCode(seed: String? = null): String {
+        val num = if (seed != null) {
+            Math.abs(seed.hashCode() % 10000)
+        } else {
+            random.nextInt(10000)
+        }
+        return String.format(java.util.Locale.US, "%04d", num)
     }
 
     fun join(state: NearbyLobbyState, playerId: String, name: String): NearbyLobbyState {

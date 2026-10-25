@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
                         onOpenWifiSettings = { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) },
                         wifiName = wifiName,
                         scannedGameCode = scannedGameCode,
+                        onClearScannedCode = ::clearScannedGameCode,
                         onRequestWifiPermission = { requestWifiPermission() },
                         onScanGameCode = { requestCameraAndScan() },
                         onExitApp = { finish() },
@@ -138,6 +139,10 @@ class MainActivity : ComponentActivity() {
 
     internal fun handleScannerResult(data: Intent?) {
         data?.getStringExtra("SCAN_RESULT")?.let { scannedGameCode = it }
+    }
+
+    internal fun clearScannedGameCode() {
+        scannedGameCode = ""
     }
 
     internal fun handleInstallStatus(status: Int) {

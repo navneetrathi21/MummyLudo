@@ -197,4 +197,48 @@ class NearbySessionTest {
             assertEquals("Could not reach the host on this Wi-Fi", error.get())
         }
     }
+
+    @Test fun `create host generates 4-digit numeric room code`() {
+        val coordinator = NearbyLobbyCoordinator()
+        val host = coordinator.createHost("Alex")
+        assertEquals(4, host.roomCode.length)
+        assertTrue(host.roomCode.all { it.isDigit() })
+    }
+
+    @Test fun `4-digit code payload round trips correctly`() {
+        val payload = JoinPayload("4821", "192.168.1.15", 42871, "4821")
+        val encoded = JoinPayloadCodec.encode(payload)
+        assertEquals(payload, JoinPayloadCodec.decode(encoded))
+    }
+
+    @Test fun `discoverHostByRoomCode finds running host on loopback`() = kotlinx.coroutines.runBlocking {
+        val coordinator = NearbyLobbyCoordinator()
+        val initial = coordinator.createHost("Host")
+        NearbyLanHost(
+            initialLobby = initial,
+            coordinator = coordinator,
+            onLobby = {},
+            onStarted = {},
+        ).use {
+            val found = discoverHostByRoomCode(initial.roomCode, localIp = "127.0.0.1")
+            assertNotNull(found)
+            assertEquals(initial.roomCode, found?.sessionId)
+            assertEquals("127.0.0.1", found?.hostAddress)
+
+            val wrong = discoverHostByRoomCode("0000", localIp = "127.0.0.1")
+            assertNull(wrong)
+
+            val subnetFound = discoverHostByRoomCode(initial.roomCode, localIp = "127.0.0.2", subnetRange = 1..1)
+            assertNotNull(subnetFound)
+            assertEquals("127.0.0.1", subnetFound?.hostAddress)
+
+            val subnetNotFound = discoverHostByRoomCode(initial.roomCode, localIp = "192.0.2.1", subnetRange = 1..1)
+            assertNull(subnetNotFound)
+        }
+    }
+
+    @Test fun `discoverHostByRoomCode rejects non 4-digit code`() = kotlinx.coroutines.runBlocking {
+        assertNull(discoverHostByRoomCode("12"))
+        assertNull(discoverHostByRoomCode("abcd"))
+    }
 }

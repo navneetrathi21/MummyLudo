@@ -58,7 +58,9 @@ open class NearbyLobbyViewModel(
         isHost = true
         nearbyLocalColor = LudoColor.RED
         nearbyEvent = null
+        nearbyError = null
         hostSession?.close()
+        hostSession = null
 
         val host = runCatching {
             NearbyLanHost(

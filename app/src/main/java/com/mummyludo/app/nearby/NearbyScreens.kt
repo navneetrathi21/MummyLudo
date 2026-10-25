@@ -5,19 +5,22 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.launch
 
 private val NearbyInk = Color(0xFF20312B)
 private val NearbyGreen = Color(0xFF3F725F)
@@ -66,8 +69,18 @@ fun HostLobbyScreen(
                 )
                 Spacer(Modifier.height(10.dp))
                 if (joinCode != null) {
-                    QrCode(joinCode, Modifier.size(190.dp).testTag("host_game_qr"))
-                    Text("Ask players to scan this in Mummy Ludo", color = NearbyInk.copy(.65f))
+                    QrCode(joinCode, Modifier.size(175.dp).testTag("host_game_qr"))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Game Code", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = NearbyInk.copy(.6f))
+                    Text(
+                        lobby.roomCode,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 6.sp,
+                        color = NearbyInk,
+                        modifier = Modifier.testTag("host_room_code"),
+                    )
+                    Text("Ask players to scan QR or enter 4-digit code", color = NearbyInk.copy(.65f), fontSize = 13.sp)
                 }
                 TextButton(onClick = onOpenWifiSettings) { Text("Share or change Wi-Fi") }
             }
@@ -95,26 +108,111 @@ fun HostLobbyScreen(
 }
 
 @Composable
-fun JoinNearbyScreen(initialCode: String, onBack: () -> Unit, onOpenWifiSettings: () -> Unit, onScan: () -> Unit, onJoin: (JoinPayload) -> Unit) {
+fun JoinNearbyScreen(
+    initialCode: String,
+    onBack: () -> Unit,
+    onOpenWifiSettings: () -> Unit,
+    onScan: () -> Unit,
+    onJoin: (JoinPayload) -> Unit,
+    onResolveManualCode: (suspend (String) -> JoinPayload?)? = null,
+) {
+    val coroutineScope = rememberCoroutineScope()
     val parsed = remember(initialCode) { JoinPayloadCodec.decode(initialCode) }
+    var manualCode by remember(parsed) {
+        mutableStateOf(parsed?.sessionId?.take(4) ?: "")
+    }
+    var isSearching by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
+
     Column(Modifier.fillMaxSize().background(NearbyCream).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("‹ Back") }
             Text("Join nearby", fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
         }
-        Spacer(Modifier.height(48.dp))
-        Text("Scan the host's game QR", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        Text("Both phones must be connected to the same Wi-Fi.", color = NearbyInk.copy(.62f))
-        Spacer(Modifier.height(28.dp))
-        Button(onClick = onScan, modifier = Modifier.fillMaxWidth().height(58.dp).testTag("nearby_scan_camera"), colors = ButtonDefaults.buttonColors(containerColor = NearbyGreen), shape = RoundedCornerShape(18.dp)) {
-            Text("Scan with camera", fontSize = 18.sp)
+        Spacer(Modifier.height(24.dp))
+        Text("Enter 4-digit game code", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text("Both phones must be connected to the same Wi-Fi.", color = NearbyInk.copy(.62f), fontSize = 14.sp)
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = manualCode,
+            onValueChange = { input ->
+                val digits = input.filter { it.isDigit() }.take(4)
+                manualCode = digits
+                searchError = null
+            },
+            label = { Text("Game code") },
+            placeholder = { Text("e.g. 4821") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            modifier = Modifier.fillMaxWidth().testTag("nearby_manual_code_input"),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = NearbyGreen,
+                focusedLabelColor = NearbyGreen,
+            ),
+        )
+        Spacer(Modifier.height(10.dp))
+        Button(
+            onClick = {
+                if (parsed != null && parsed.sessionId.take(4) == manualCode) {
+                    onJoin(parsed)
+                } else if (manualCode.length == 4) {
+                    searchError = null
+                    isSearching = true
+                    coroutineScope.launch {
+                        val resolver = onResolveManualCode ?: { code -> discoverHostByRoomCode(code) }
+                        val resolved = resolver(manualCode)
+                        isSearching = false
+                        if (resolved != null) {
+                            onJoin(resolved)
+                        } else {
+                            searchError = "No game found with code $manualCode on this Wi-Fi"
+                        }
+                    }
+                }
+            },
+            enabled = manualCode.length == 4 && !isSearching,
+            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("nearby_join_manual_button"),
+            colors = ButtonDefaults.buttonColors(containerColor = NearbyGreen),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Text(if (isSearching) "Searching for game…" else "Join with code", fontSize = 17.sp)
+        }
+
+        if (searchError != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(searchError!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.testTag("nearby_search_error"))
+        }
+
+        Spacer(Modifier.height(20.dp))
+        Text("— OR —", color = NearbyInk.copy(.4f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.height(20.dp))
+
+        Button(
+            onClick = onScan,
+            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("nearby_scan_camera"),
+            colors = ButtonDefaults.buttonColors(containerColor = NearbyGreen),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Text("Scan with camera", fontSize = 17.sp)
         }
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = onOpenWifiSettings, modifier = Modifier.fillMaxWidth()) { Text("Open Wi-Fi settings") }
+        OutlinedButton(onClick = onOpenWifiSettings, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Text("Open Wi-Fi settings")
+        }
+
         if (parsed != null) {
-            Spacer(Modifier.height(28.dp))
-            Text("Game found", color = NearbyGreen, fontWeight = FontWeight.SemiBold)
-            Button(onClick = { onJoin(parsed) }, modifier = Modifier.fillMaxWidth().testTag("nearby_join_confirm")) { Text("Join game") }
+            Spacer(Modifier.height(20.dp))
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Game found", color = NearbyGreen, fontWeight = FontWeight.SemiBold)
+                    Text("Code: ${parsed.sessionId}", color = NearbyInk.copy(.6f), fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { onJoin(parsed) }, modifier = Modifier.fillMaxWidth().testTag("nearby_join_confirm"), colors = ButtonDefaults.buttonColors(containerColor = NearbyGreen)) {
+                        Text("Join game")
+                    }
+                }
+            }
         }
     }
 }

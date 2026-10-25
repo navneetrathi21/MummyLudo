@@ -28,6 +28,7 @@ fun MummyLudoApp(
     onOpenWifiSettings: () -> Unit = {},
     wifiName: String? = null,
     scannedGameCode: String = "",
+    onClearScannedCode: () -> Unit = {},
     onRequestWifiPermission: () -> Unit = {},
     onScanGameCode: () -> Unit = {},
     onExitApp: () -> Unit = {},
@@ -159,7 +160,7 @@ fun MummyLudoApp(
                 onBack = { page = Page.HOME },
                 onHost = {
                     onRequestWifiPermission()
-                    nearbyVm.startHosting(
+                    val started = nearbyVm.startHosting(
                         initialPlayerName = playerName.ifBlank { "Player 1" },
                         onStarted = { seats ->
                             gameVm.game = gameVm.engine.newGame(seats.toGameSeats())
@@ -169,9 +170,14 @@ fun MummyLudoApp(
                             nearbyVm.acceptNearbyAction(gameVm.game, playerColor, action, gameVm.engine)
                         },
                     )
-                    page = Page.HOST_LOBBY
+                    if (started) {
+                        page = Page.HOST_LOBBY
+                    }
                 },
-                onJoin = { page = Page.JOIN_NEARBY },
+                onJoin = {
+                    onClearScannedCode()
+                    page = Page.JOIN_NEARBY
+                },
             )
             Page.HOST_LOBBY -> HostLobbyScreen(
                 lobby = nearbyVm.hostLobby ?: coordinator.createHost(playerName.ifBlank { "Player 1" }).also { nearbyVm.hostLobby = it },
@@ -186,10 +192,14 @@ fun MummyLudoApp(
             )
             Page.JOIN_NEARBY -> JoinNearbyScreen(
                 initialCode = scannedGameCode,
-                onBack = { page = Page.NEARBY },
+                onBack = {
+                    onClearScannedCode()
+                    page = Page.NEARBY
+                },
                 onOpenWifiSettings = onOpenWifiSettings,
                 onScan = onScanGameCode,
                 onJoin = { payload ->
+                    onClearScannedCode()
                     nearbyVm.startJoining(
                         payload = payload,
                         initialName = playerName.ifBlank { "Player" },
@@ -220,8 +230,22 @@ internal fun List<NearbyStartedSeat>.toGameSeats(): List<Seat> = map {
 }
 
 internal fun localWifiAddress(): String? = runCatching {
-    NetworkInterface.getNetworkInterfaces().toList().flatMap { it.inetAddresses.toList() }
-        .filterIsInstance<Inet4Address>().firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
+    val interfaces = NetworkInterface.getNetworkInterfaces().toList()
+        .filter { it.isUp && !it.isLoopback }
+        .sortedByDescending { iface ->
+            val name = iface.name.lowercase()
+            when {
+                name.startsWith("wlan") -> 100
+                name.startsWith("ap") || name.startsWith("softap") -> 90
+                name.startsWith("eth") || name.startsWith("en") -> 80
+                name.startsWith("rmnet") || name.startsWith("ccmni") -> -10
+                else -> 0
+            }
+        }
+    interfaces.flatMap { it.inetAddresses.toList() }
+        .filterIsInstance<Inet4Address>()
+        .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }
+        ?.hostAddress
 }.getOrNull()
 
 internal fun createSeats(

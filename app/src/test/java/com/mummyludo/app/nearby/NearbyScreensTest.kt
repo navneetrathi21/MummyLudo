@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.mummyludo.app.game.LudoColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -158,6 +159,81 @@ class NearbyScreensTest {
         compose.onNodeWithText("Game found").assertIsDisplayed()
         compose.onNodeWithTag("nearby_join_confirm").assertIsEnabled().performClick()
         assertEquals(expected, joined)
+    }
+
+    @Test
+    fun manual4DigitCodeCanBeEnteredAndResolvedToJoinGame() {
+        val expected = JoinPayload(
+            sessionId = "4821",
+            hostAddress = "192.168.1.50",
+            port = 42871,
+            joinToken = "4821",
+        )
+        var joined: JoinPayload? = null
+        compose.setContent {
+            JoinNearbyScreen(
+                initialCode = "",
+                onBack = {},
+                onOpenWifiSettings = {},
+                onScan = {},
+                onJoin = { joined = it },
+                onResolveManualCode = { code ->
+                    if (code == "4821") expected else null
+                },
+            )
+        }
+
+        compose.onNodeWithTag("nearby_manual_code_input").assertIsDisplayed()
+        compose.onNodeWithTag("nearby_join_manual_button").assertIsNotEnabled()
+
+        // Type 4 digits
+        compose.onNodeWithTag("nearby_manual_code_input").performTextInput("4821")
+        compose.onNodeWithTag("nearby_join_manual_button").assertIsEnabled().performClick()
+
+        assertEquals(expected, joined)
+    }
+
+    @Test
+    fun manual4DigitCodeShowsErrorWhenNotFound() {
+        compose.setContent {
+            JoinNearbyScreen(
+                initialCode = "",
+                onBack = {},
+                onOpenWifiSettings = {},
+                onScan = {},
+                onJoin = {},
+                onResolveManualCode = { null },
+            )
+        }
+
+        compose.onNodeWithTag("nearby_manual_code_input").performTextInput("9999")
+        compose.onNodeWithTag("nearby_join_manual_button").performClick()
+
+        compose.onNodeWithTag("nearby_search_error").assertIsDisplayed()
+    }
+
+    @Test
+    fun hostLobbyDisplays4DigitRoomCode() {
+        val lobby = NearbyLobbyState(
+            sessionId = "7392",
+            joinToken = "7392",
+            players = listOf(NearbyPlayer("host", "Host", true, LudoColor.RED, true)),
+            roomCode = "7392",
+        )
+        compose.setContent {
+            HostLobbyScreen(
+                lobby = lobby,
+                hostAddress = "192.168.1.10",
+                wifiName = "Home-Wifi",
+                onBack = {},
+                onOpenWifiSettings = {},
+                onStart = {},
+            )
+        }
+
+        compose.onNodeWithTag("host_room_code").assertIsDisplayed()
+        compose.onNodeWithText("7392").assertIsDisplayed()
+        compose.onNodeWithText("Ask players to scan QR or enter 4-digit code").assertIsDisplayed()
     }
 
     private fun lobby(vararg players: NearbyPlayer) = NearbyLobbyState(

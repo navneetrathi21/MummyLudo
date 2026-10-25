@@ -65,6 +65,8 @@ class MainActivityTest {
             ActivityResult(Activity.RESULT_OK, Intent().putExtra("SCAN_RESULT", "scanned-result")),
         )
         assertEquals("scanned-result", activity.scannedGameCode)
+        activity.clearScannedGameCode()
+        assertEquals("", activity.scannedGameCode)
         activity.handleUpdateFlowResult(ActivityResult(Activity.RESULT_CANCELED, null))
 
         activity.handleInstallStatus(InstallStatus.PENDING)

@@ -80,15 +80,20 @@ All notable changes to this project will be recorded here.
   - Added release automation scripts: `scripts/build_play_store_release.sh` (runs tests and builds release AAB) and `scripts/generate_upload_keystore.sh` (generates standard 2048-bit RSA upload keystore).
   - Successfully generated production release Android App Bundle (`app/build/outputs/bundle/release/app-release.aab`).
 
-- **Nearby Profile Updates & Ready Locking**:
-  - Fixed `"Connection to the host was lost"` error when selecting color or updating profile in Nearby LAN multiplayer: offloaded all socket writes in `NearbyLanClient` and `NearbyLanHost` to dedicated background single-thread executors, eliminating `NetworkOnMainThreadException` on Android devices.
-  - Enforced profile & color locking while ready: when a player (Host or Guest) is in the "Ready" state, color pickers and name inputs are disabled and unclickable, with clear visual indications ("Locked (ready)" and "Unready to change name or color"). Players can only change color or name after toggling back to "Not ready".
+## [0.2.4] - 2026-10-28
+### Added & Fixed
+- **Google Play Store Version Bump**:
+  - Incremented `versionCode = 6` and `versionName = "0.2.4"` in `app/build.gradle.kts` for Play Store release upload.
+- **Nearby Socket Threading & Connection Stability**:
+  - Fixed `"Connection to the host was lost"` error when selecting color or updating profile: offloaded all socket I/O in `NearbyLanClient` and `NearbyLanHost` to dedicated background executors, preventing `android.os.NetworkOnMainThreadException` on Android devices.
+- **Readiness Color & Profile Locking**:
+  - In `GuestLobbyScreen` and `HostLobbyScreen`, locked color pickers and name inputs while a player is in the "Ready" state, showing clear visual cues ("Locked (ready)" and "Unready to change name or color").
   - Enforced protocol-level guards in `NearbyLanHost` and `NearbyLobbyCoordinator.chooseColor` / `rename` so color and profile alterations are ignored while in the ready state.
 
 ### Verification & Metrics
 - All 161 unit tests passing with 0 failures (100% pass rate).
 - Whole-app line coverage reached **98.81%** (2,497 / 2,527 lines covered across all source files).
-- Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB).
+- Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB, versionCode 6).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 
 

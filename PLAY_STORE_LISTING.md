@@ -141,11 +141,11 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 
 ---
 
-## 8. Release Notes (What's New in v0.2.3)
+## 8. Release Notes (What's New in v0.2.4)
 
 ### English (en-US)
 ```
-What's new in version 0.2.3:
+What's new in version 0.2.4:
 • 4-Digit Game Codes: Quickly join nearby multiplayer games with simple numeric room codes.
 • QR Code Scanning: Instant one-tap join by scanning the host's screen.
 • Interactive Lobby & Ready State: Pick your color and ready up; color and profile choices lock once ready to ensure fair match setup.

@@ -146,12 +146,13 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 ### English (en-US)
 ```
 What's new in version 0.2.3:
-• 4-Digit Game Codes: Quickly join nearby games with simple numeric codes.
+• 4-Digit Game Codes: Quickly join nearby multiplayer games with simple numeric room codes.
 • QR Code Scanning: Instant one-tap join by scanning the host's screen.
-• Interactive Color Selection: Pick your color and ready up on both host and guest screens.
-• Personalized Onboarding: Set your player name on first launch.
-• Real-time Wi-Fi Network Name display with Settings shortcut.
-• Complete match state persistence: resume saved games anytime.
+• Interactive Lobby & Ready State: Pick your color and ready up; color and profile choices lock once ready to ensure fair match setup.
+• Nearby LAN Stability: Offloaded socket networking to background workers, eliminating connection drops during color selection.
+• Personalized Onboarding: Set your player name on first launch and customize your profile.
+• Wi-Fi Network Display: Real-time network detection with a direct shortcut to Android settings when location permissions are needed.
+• Match Continuation: Automatic local game state saving so you can resume active games anytime.
 ```
 
 ---

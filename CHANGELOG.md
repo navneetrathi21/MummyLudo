@@ -81,18 +81,19 @@ All notable changes to this project will be recorded here.
   - Successfully generated production release Android App Bundle (`app/build/outputs/bundle/release/app-release.aab`).
 
 ## [0.2.4] - 2026-10-28
-### Added & Fixed
-- **Google Play Store Version Bump**:
-  - Incremented `versionCode = 6` and `versionName = "0.2.4"` in `app/build.gradle.kts` for Play Store release upload.
-- **Nearby Socket Threading & Connection Stability**:
-  - Fixed `"Connection to the host was lost"` error when selecting color or updating profile: offloaded all socket I/O in `NearbyLanClient` and `NearbyLanHost` to dedicated background executors, preventing `android.os.NetworkOnMainThreadException` on Android devices.
+### Fixed
+- **Nearby LAN Socket Connection Drops**:
+  - Fixed `"Connection to the host was lost"` error when selecting color or updating profile in Nearby multiplayer: offloaded all socket I/O in `NearbyLanClient` and `NearbyLanHost` (`updateProfile`, `sendGameAction`, `publishLobby`, `startGame`, `broadcastGameEvent`) to dedicated background worker executors, eliminating `android.os.NetworkOnMainThreadException` on Android devices.
 - **Readiness Color & Profile Locking**:
-  - In `GuestLobbyScreen` and `HostLobbyScreen`, locked color pickers and name inputs while a player is in the "Ready" state, showing clear visual cues ("Locked (ready)" and "Unready to change name or color").
-  - Enforced protocol-level guards in `NearbyLanHost` and `NearbyLobbyCoordinator.chooseColor` / `rename` so color and profile alterations are ignored while in the ready state.
+  - Prevented ready players from changing color or profile settings: on both `GuestLobbyScreen` and `HostLobbyScreen`, color pickers and name inputs are disabled when marked "Ready", with clear visual indicators ("Locked (ready)" and "Unready to change name or color").
+  - Enforced protocol-level guards in `NearbyLanHost` and `NearbyLobbyCoordinator.chooseColor` / `rename` so color and profile alterations are rejected by the server while a player is in the ready state.
+
+### Changed
+- Bumped application version to `versionCode = 6` and `versionName = "0.2.4"` in `app/build.gradle.kts` for Google Play Store upload.
 
 ### Verification & Metrics
 - All 161 unit tests passing with 0 failures (100% pass rate).
-- Whole-app line coverage reached **98.81%** (2,497 / 2,527 lines covered across all source files).
+- Whole-app line coverage reached **98.81%** (2,497 / 2,527 lines covered across all 21 source files; every file $\ge 96.0\%$).
 - Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB, versionCode 6).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 

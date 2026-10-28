@@ -167,12 +167,15 @@ fun HostLobbyScreen(
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                             LudoColor.entries.forEach { color ->
-                                val enabled = color !in unavailableColors
+                                val enabled = !player.ready && (color !in unavailableColors)
                                 val isSelected = player.color == color
                                 Box(
                                     Modifier
                                         .size(38.dp)
-                                        .background(color.colorOrMuted().copy(alpha = if (enabled) 1f else .25f), CircleShape)
+                                        .background(
+                                            color.colorOrMuted().copy(alpha = if (enabled || isSelected) 1f else .25f),
+                                            CircleShape,
+                                        )
                                         .clickable(enabled = enabled) { onProfile(player.name, color, player.ready) }
                                         .testTag("host_color_${color.name.lowercase()}"),
                                     contentAlignment = Alignment.Center,

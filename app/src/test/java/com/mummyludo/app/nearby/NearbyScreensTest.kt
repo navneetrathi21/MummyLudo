@@ -111,13 +111,13 @@ class NearbyScreensTest {
     @Test
     fun hostColorSelectionAndReadyToggleWorkCorrectly() {
         val profiles = mutableListOf<Triple<String, LudoColor?, Boolean>>()
-        val lobby = lobby(
+        val readyLobby = lobby(
             NearbyPlayer("host", "Host", true, LudoColor.RED, true),
             NearbyPlayer("guest", "Guest", false, LudoColor.GREEN, true),
         )
         compose.setContent {
             HostLobbyScreen(
-                lobby = lobby,
+                lobby = readyLobby,
                 hostAddress = "192.168.1.10",
                 wifiName = "Home-Wifi",
                 onBack = {},
@@ -128,17 +128,43 @@ class NearbyScreensTest {
         }
 
         compose.onNodeWithTag("host_profile_card").assertIsDisplayed()
+        compose.onNodeWithText("✓ Ready").assertIsDisplayed()
         // Green is taken by guest -> should not be enabled for host
         compose.onNodeWithTag("host_color_green").assertIsNotEnabled()
-        // Blue is available -> click it
+        // Host is ready -> Blue must NOT be enabled to change color
+        compose.onNodeWithTag("host_color_blue").assertIsNotEnabled()
+
+        // Toggle ready button to unready
+        compose.onNodeWithTag("host_ready_button").assertIsEnabled().performClick()
+        assertEquals(1, profiles.size)
+        assertEquals(Triple("Host", LudoColor.RED, false), profiles.last())
+    }
+
+    @Test
+    fun unreadyHostCanSelectColor() {
+        val profiles = mutableListOf<Triple<String, LudoColor?, Boolean>>()
+        val unreadyLobby = lobby(
+            NearbyPlayer("host", "Host", true, LudoColor.RED, false),
+            NearbyPlayer("guest", "Guest", false, LudoColor.GREEN, true),
+        )
+        compose.setContent {
+            HostLobbyScreen(
+                lobby = unreadyLobby,
+                hostAddress = "192.168.1.10",
+                wifiName = "Home-Wifi",
+                onBack = {},
+                onOpenWifiSettings = {},
+                onProfile = { name, color, ready -> profiles += Triple(name, color, ready) },
+                onStart = {},
+            )
+        }
+
+        // Green is taken by guest
+        compose.onNodeWithTag("host_color_green").assertIsNotEnabled()
+        // When unready, Blue is available to select
         compose.onNodeWithTag("host_color_blue").assertIsEnabled().performClick()
         assertEquals(1, profiles.size)
-        assertEquals(Triple("Host", LudoColor.BLUE, true), profiles.last())
-
-        // Toggle ready button
-        compose.onNodeWithTag("host_ready_button").assertIsEnabled().performClick()
-        assertEquals(2, profiles.size)
-        assertEquals(Triple("Host", LudoColor.RED, false), profiles.last())
+        assertEquals(Triple("Host", LudoColor.BLUE, false), profiles.last())
     }
 
     @Test

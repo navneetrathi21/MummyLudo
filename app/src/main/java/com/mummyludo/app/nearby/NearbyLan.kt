@@ -12,6 +12,7 @@ import java.net.Socket
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,9 @@ class NearbyLanHost(
     }
     private val clients = ConcurrentHashMap<String, BufferedWriter>()
     private val clientSockets = ConcurrentHashMap<String, Socket>()
+    private val broadcastExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "mummy-lan-host-broadcaster").apply { isDaemon = true }
+    }
     @Volatile private var lobby = initialLobby
     @Volatile private var running = true
 
@@ -82,10 +86,20 @@ class NearbyLanHost(
                                 val color = parts[3].takeUnless { value -> value == "-" }?.let(LudoColor::valueOf)
                                 val ready = parts[4].toBooleanStrictOrNull() ?: false
                                 synchronized(this@NearbyLanHost) {
-                                    lobby = rename(lobby, playerId, name)
-                                    if (color != null) lobby = coordinator.chooseColor(lobby, playerId, color)
-                                    lobby = coordinator.setReady(lobby, playerId, ready)
-                                    publishLobby()
+                                    val player = lobby.players.firstOrNull { it.id == playerId }
+                                    if (player != null) {
+                                        if (player.ready && ready) {
+                                            // Player is already ready and remains ready: ignore changes to name or color
+                                        } else {
+                                            if (player.ready && !ready) {
+                                                lobby = coordinator.setReady(lobby, playerId, false)
+                                            }
+                                            lobby = rename(lobby, playerId, name)
+                                            if (color != null) lobby = coordinator.chooseColor(lobby, playerId, color)
+                                            lobby = coordinator.setReady(lobby, playerId, ready)
+                                            publishLobby()
+                                        }
+                                    }
                                 }
                             } else if (parts.size == 2 && parts[0] == "ACTION") {
                                 NearbyGameActionCodec.decode(decode(parts[1]))?.let { action ->
@@ -116,19 +130,15 @@ class NearbyLanHost(
             player.color?.let { NearbyStartedSeat(it, player.name) }
         }.sortedBy { it.color.ordinal }
         val message = "START|${encodeSeats(seats)}"
-        // Send the START message to all connected clients.
-        clients.values.forEach { writer -> runCatching { writer.send(message) } }
-        // Small delay ensures any in‑flight PROFILE updates are processed before we mark game started.
-        Thread.sleep(50)
+        broadcastAsync(message)
         onStarted(seats)
         return true
     }
 
     fun broadcastGameEvent(event: NearbyGameEvent) {
         val message = "EVENT|${encode(NearbyGameEventCodec.encode(event))}"
-        clients.values.forEach { writer -> runCatching { writer.send(message) } }
+        broadcastAsync(message)
     }
-
 
     /**
      * Update the host's own profile.  Clients normally send a PROFILE message to the
@@ -137,24 +147,40 @@ class NearbyLanHost(
     @Synchronized
     fun updateProfile(name: String, color: LudoColor?, ready: Boolean) {
         val hostPlayer = lobby.players.find { it.isHost } ?: return
-        lobby = lobby.copy(
-            players = lobby.players.map {
-                if (it.id == hostPlayer.id)
-                    it.copy(name = name, color = color, ready = ready)
-                else it
-            }
-        )
+        if (hostPlayer.ready && ready) {
+            return
+        }
+        if (hostPlayer.ready && !ready) {
+            lobby = coordinator.setReady(lobby, hostPlayer.id, false)
+        }
+        lobby = rename(lobby, hostPlayer.id, name)
+        if (color != null) lobby = coordinator.chooseColor(lobby, hostPlayer.id, color)
+        lobby = coordinator.setReady(lobby, hostPlayer.id, ready)
         publishLobby()
     }
+
     @Synchronized
     private fun publishLobby() {
         onLobby(lobby)
         val message = "LOBBY|${encodeLobby(lobby)}"
-        clients.values.forEach { writer -> runCatching { writer.send(message) } }
+        broadcastAsync(message)
+    }
+
+    private fun broadcastAsync(message: String) {
+        if (!running) return
+        runCatching {
+            broadcastExecutor.execute {
+                if (!running) return@execute
+                clients.values.forEach { writer ->
+                    runCatching { writer.send(message) }
+                }
+            }
+        }
     }
 
     override fun close() {
         running = false
+        broadcastExecutor.shutdownNow()
         runCatching { server.close() }
         clientSockets.values.forEach { socket -> runCatching { socket.close() } }
         clientSockets.clear()
@@ -174,6 +200,10 @@ class NearbyLanClient(
     val playerId: String = UUID.randomUUID().toString()
     @Volatile private var socket: Socket? = null
     @Volatile private var writer: BufferedWriter? = null
+    @Volatile private var running = true
+    private val sendExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "mummy-lan-client-sender").apply { isDaemon = true }
+    }
 
     fun connect() {
         thread(name = "mummy-ludo-join", isDaemon = true) {
@@ -184,7 +214,7 @@ class NearbyLanClient(
                 writer = output
                 output.send("JOIN|${encode(payload.joinToken)}|${encode(playerId)}|${encode(initialName)}")
                 val reader = BufferedReader(InputStreamReader(connected.getInputStream()))
-                while (!connected.isClosed) {
+                while (running && !connected.isClosed) {
                     val parts = reader.readLine()?.split('|', limit = 2) ?: break
                     when (parts[0]) {
                         "LOBBY" -> onLobby(decodeLobby(payload, parts.getOrElse(1) { "" }))
@@ -193,33 +223,54 @@ class NearbyLanClient(
                         "EVENT" -> NearbyGameEventCodec.decode(decode(parts.getOrElse(1) { "" }))?.let(onGameEvent)
                     }
                 }
-            }.onFailure { onError("Could not reach the host on this Wi-Fi") }
+            }.onFailure {
+                if (running) onError("Could not reach the host on this Wi-Fi")
+            }
         }
     }
 
     fun updateProfile(name: String, color: LudoColor?, ready: Boolean) {
-        writer?.let { output ->
-            runCatching {
-                output.send("PROFILE|${encode(playerId)}|${encode(name.take(24))}|${color?.name ?: "-"}|$ready")
-            }.onFailure { onError("Connection to the host was lost") }
-        }
+        val message = "PROFILE|${encode(playerId)}|${encode(name.take(24))}|${color?.name ?: "-"}|$ready"
+        sendAsync(message)
     }
 
     fun sendGameAction(action: NearbyGameAction) {
-        writer?.let { output ->
-            runCatching { output.send("ACTION|${encode(NearbyGameActionCodec.encode(action))}") }
-                .onFailure { onError("Connection to the host was lost") }
+        val message = "ACTION|${encode(NearbyGameActionCodec.encode(action))}"
+        sendAsync(message)
+    }
+
+    private fun sendAsync(message: String) {
+        if (!running) return
+        runCatching {
+            sendExecutor.execute {
+                if (!running) return@execute
+                val output = writer
+                if (output != null) {
+                    runCatching {
+                        output.send(message)
+                    }.onFailure {
+                        if (running) onError("Connection to the host was lost")
+                    }
+                }
+            }
+        }.onFailure {
+            if (running) onError("Connection to the host was lost")
         }
     }
 
     override fun close() {
+        running = false
+        sendExecutor.shutdownNow()
         runCatching { socket?.close() }
         writer = null
     }
 }
 
-private fun rename(state: NearbyLobbyState, playerId: String, name: String): NearbyLobbyState =
-    state.copy(players = state.players.map { if (it.id == playerId) it.copy(name = name, ready = false) else it })
+private fun rename(state: NearbyLobbyState, playerId: String, name: String): NearbyLobbyState {
+    val player = state.players.firstOrNull { it.id == playerId } ?: return state
+    if (player.ready) return state
+    return state.copy(players = state.players.map { if (it.id == playerId) it.copy(name = name) else it })
+}
 
 private fun encodeLobby(state: NearbyLobbyState): String = state.players.joinToString(";") { player ->
     listOf(encode(player.id), encode(player.name), player.isHost, player.color?.name ?: "-", player.ready).joinToString(",")

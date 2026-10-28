@@ -90,6 +90,14 @@ class GuestLobbyScreenTest {
 
         compose.onNodeWithText("Host").assertIsDisplayed()
         compose.onNodeWithText("Not ready").assertIsDisplayed()
+        compose.onNodeWithText("Locked (ready)").assertIsDisplayed()
+        compose.onNodeWithText("Unready to change name or color").assertIsDisplayed()
+
+        // Name and color circles are disabled when player is ready
+        compose.onNodeWithTag("guest_name").assertIsNotEnabled()
+        compose.onNodeWithTag("guest_color_green").assertIsNotEnabled()
+        compose.onNodeWithTag("guest_color_blue").assertIsNotEnabled()
+
         compose.onNodeWithTag("guest_ready").assertIsEnabled().performClick()
         assertEquals(Triple("Guest", LudoColor.GREEN, false), profiles.single())
     }

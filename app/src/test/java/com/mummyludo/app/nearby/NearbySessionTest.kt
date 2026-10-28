@@ -40,6 +40,26 @@ class NearbySessionTest {
         assertTrue(lobby.canStart)
     }
 
+    @Test fun `ready player cannot change color until set to not ready`() {
+        val coordinator = NearbyLobbyCoordinator()
+        var lobby = coordinator.createHost("Navneet")
+        lobby = coordinator.join(lobby, "rhea", "Rhea")
+        lobby = coordinator.chooseColor(lobby, "rhea", LudoColor.BLUE)
+        lobby = coordinator.setReady(lobby, "rhea", true)
+        assertTrue(lobby.players.first { it.id == "rhea" }.ready)
+        assertEquals(LudoColor.BLUE, lobby.players.first { it.id == "rhea" }.color)
+
+        // Attempting to change color while ready is ignored
+        lobby = coordinator.chooseColor(lobby, "rhea", LudoColor.GREEN)
+        assertEquals(LudoColor.BLUE, lobby.players.first { it.id == "rhea" }.color)
+
+        // Only after unreadying can color be changed
+        lobby = coordinator.setReady(lobby, "rhea", false)
+        assertFalse(lobby.players.first { it.id == "rhea" }.ready)
+        lobby = coordinator.chooseColor(lobby, "rhea", LudoColor.GREEN)
+        assertEquals(LudoColor.GREEN, lobby.players.first { it.id == "rhea" }.color)
+    }
+
     @Test fun `wifi ssid is cleaned for display`() {
         assertEquals("Home Wi-Fi", cleanWifiSsid("\"Home Wi-Fi\""))
         assertNull(cleanWifiSsid("<unknown ssid>"))
@@ -406,6 +426,32 @@ class NearbySessionTest {
         }
     }
 
+    @Test fun `ready host cannot change color or name while remaining ready`() {
+        val coordinator = NearbyLobbyCoordinator()
+        val initial = coordinator.createHost("Host")
+        val published = AtomicReference(initial)
+        NearbyLanHost(
+            initialLobby = initial,
+            coordinator = coordinator,
+            onLobby = published::set,
+            onStarted = {},
+        ).use { host ->
+            assertTrue(published.get().players.single().ready)
+            assertEquals(LudoColor.RED, published.get().players.single().color)
+
+            // Attempt to update color while staying ready -> ignored
+            host.updateProfile("Hacker Host", LudoColor.YELLOW, true)
+            assertEquals("Host", published.get().players.single().name)
+            assertEquals(LudoColor.RED, published.get().players.single().color)
+
+            // Unreadying allows updates
+            host.updateProfile("Hacker Host", LudoColor.YELLOW, false)
+            assertEquals("Hacker Host", published.get().players.single().name)
+            assertEquals(LudoColor.YELLOW, published.get().players.single().color)
+            assertFalse(published.get().players.single().ready)
+        }
+    }
+
     @Test fun `invalid join token is rejected and never enters the lobby`() {
         val coordinator = NearbyLobbyCoordinator()
         val initial = coordinator.createHost("Host")
@@ -493,5 +539,56 @@ class NearbySessionTest {
     @Test fun `discoverHostByRoomCode rejects non 4-digit code`() = kotlinx.coroutines.runBlocking {
         assertNull(discoverHostByRoomCode("12"))
         assertNull(discoverHostByRoomCode("abcd"))
+    }
+
+    @Test fun `room code generation produces 4-digit string`() {
+        val coordinator = NearbyLobbyCoordinator()
+        val codeWithSeed = coordinator.generateRoomCode("seed-123")
+        assertEquals(4, codeWithSeed.length)
+        assertTrue(codeWithSeed.all { it.isDigit() })
+
+        val codeWithoutSeed = coordinator.generateRoomCode(null)
+        assertEquals(4, codeWithoutSeed.length)
+        assertTrue(codeWithoutSeed.all { it.isDigit() })
+    }
+
+    @Test fun `client send failure triggers error callback`() {
+        val coordinator = NearbyLobbyCoordinator()
+        val initial = coordinator.createHost("Host")
+        val errorLatch = CountDownLatch(1)
+        val errorMessage = AtomicReference<String>()
+        val clientLobby = CountDownLatch(1)
+
+        val host = NearbyLanHost(
+            initialLobby = initial,
+            coordinator = coordinator,
+            onLobby = {},
+            onStarted = {},
+        )
+        val client = NearbyLanClient(
+            payload = JoinPayload(initial.sessionId, "127.0.0.1", 42871, initial.joinToken),
+            initialName = "Guest",
+            onLobby = { clientLobby.countDown() },
+            onStarted = {},
+            onError = { message ->
+                errorMessage.set(message)
+                errorLatch.countDown()
+            },
+        )
+        try {
+            client.connect()
+            assertTrue("Client did not connect", clientLobby.await(3, TimeUnit.SECONDS))
+            host.close()
+            Thread.sleep(100)
+            repeat(10) {
+                client.updateProfile("Guest2", LudoColor.BLUE, false)
+                Thread.sleep(50)
+            }
+            assertTrue("Client did not report connection lost", errorLatch.await(3, TimeUnit.SECONDS))
+            assertEquals("Connection to the host was lost", errorMessage.get())
+        } finally {
+            client.close()
+            host.close()
+        }
     }
 }

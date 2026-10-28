@@ -131,6 +131,8 @@ class NearbyLobbyCoordinator(private val random: SecureRandom = SecureRandom()) 
     }
 
     fun chooseColor(state: NearbyLobbyState, playerId: String, color: LudoColor): NearbyLobbyState {
+        val player = state.players.firstOrNull { it.id == playerId } ?: return state
+        if (player.ready) return state
         if (color in state.botColors || state.players.any { it.id != playerId && it.color == color }) return state
         return state.copy(players = state.players.map {
             if (it.id == playerId) it.copy(color = color, ready = false) else it

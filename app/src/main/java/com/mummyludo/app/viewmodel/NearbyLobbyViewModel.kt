@@ -120,17 +120,34 @@ open class NearbyLobbyViewModel(
     }
 
     fun updateGuestProfile(name: String, color: LudoColor?, ready: Boolean) {
+        val current = guestLobby?.players?.firstOrNull { it.id == clientSession?.playerId }
+        if (current != null && current.ready && ready && (current.color != color || current.name != name)) {
+            return
+        }
         clientSession?.updateProfile(name, color, ready)
     }
 
     fun updateHostProfile(name: String, color: LudoColor?, ready: Boolean) {
-        if (color != null) nearbyLocalColor = color
+        val currentHost = hostLobby?.players?.find { it.isHost }
+        if (currentHost != null && currentHost.ready && ready && (currentHost.color != color || currentHost.name != name)) {
+            return
+        }
+        if (color != null && (!ready || currentHost == null || !currentHost.ready)) {
+            nearbyLocalColor = color
+        }
         hostSession?.updateProfile(name, color, ready)
         hostLobby?.let { current ->
             val hostPlayer = current.players.find { it.isHost } ?: return@let
+            if (hostPlayer.ready && ready && (hostPlayer.color != color || hostPlayer.name != name)) {
+                return@let
+            }
             hostLobby = current.copy(
                 players = current.players.map {
-                    if (it.id == hostPlayer.id) it.copy(name = name, color = color, ready = ready) else it
+                    if (it.id == hostPlayer.id) {
+                        if (hostPlayer.ready && !ready) it.copy(name = name, color = color, ready = false)
+                        else if (!hostPlayer.ready) it.copy(name = name, color = color, ready = ready)
+                        else it
+                    } else it
                 },
             )
         }

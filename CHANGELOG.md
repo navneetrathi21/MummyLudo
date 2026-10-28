@@ -80,9 +80,14 @@ All notable changes to this project will be recorded here.
   - Added release automation scripts: `scripts/build_play_store_release.sh` (runs tests and builds release AAB) and `scripts/generate_upload_keystore.sh` (generates standard 2048-bit RSA upload keystore).
   - Successfully generated production release Android App Bundle (`app/build/outputs/bundle/release/app-release.aab`).
 
+- **Nearby Profile Updates & Ready Locking**:
+  - Fixed `"Connection to the host was lost"` error when selecting color or updating profile in Nearby LAN multiplayer: offloaded all socket writes in `NearbyLanClient` and `NearbyLanHost` to dedicated background single-thread executors, eliminating `NetworkOnMainThreadException` on Android devices.
+  - Enforced profile & color locking while ready: when a player (Host or Guest) is in the "Ready" state, color pickers and name inputs are disabled and unclickable, with clear visual indications ("Locked (ready)" and "Unready to change name or color"). Players can only change color or name after toggling back to "Not ready".
+  - Enforced protocol-level guards in `NearbyLanHost` and `NearbyLobbyCoordinator.chooseColor` / `rename` so color and profile alterations are ignored while in the ready state.
+
 ### Verification & Metrics
-- All 156 unit tests passing with 0 failures (100% pass rate).
-- Whole-app line coverage reached **99.1%** (2,406 / 2,427 lines covered across all 21 source files, 13 files at 100.0%, all files $\ge 96.6\%$).
+- All 161 unit tests passing with 0 failures (100% pass rate).
+- Whole-app line coverage reached **98.81%** (2,497 / 2,527 lines covered across all source files).
 - Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 

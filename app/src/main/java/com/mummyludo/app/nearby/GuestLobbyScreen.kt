@@ -32,6 +32,7 @@ fun GuestLobbyScreen(
     modifier: Modifier = Modifier,
 ) {
     val me = lobby?.players?.firstOrNull { it.id == playerId }
+    val isReady = me?.ready == true
     var name by remember(me?.name) { mutableStateOf(me?.name ?: "Player") }
     val selected = me?.color
     val unavailable = lobby?.players.orEmpty().filter { it.id != playerId }.mapNotNull { it.color }.toSet() + lobby?.botColors.orEmpty()
@@ -69,6 +70,10 @@ fun GuestLobbyScreen(
                     onValueChange = { name = it.take(24) },
                     label = { Text("Your name") },
                     singleLine = true,
+                    enabled = !isReady,
+                    supportingText = if (isReady) {
+                        { Text("Unready to change name or color", color = NearbyInk.copy(.6f), fontSize = 12.sp) }
+                    } else null,
                     modifier = Modifier.fillMaxWidth().testTag("guest_name"),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = NearbyGreen,
@@ -83,24 +88,29 @@ fun GuestLobbyScreen(
                 ) {
                     Text("Choose your color", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
                     Text(
-                        selected?.label ?: "None selected",
-                        color = NearbyInk.copy(.58f),
+                        if (isReady) "Locked (ready)" else (selected?.label ?: "None selected"),
+                        color = if (isReady) NearbyGreen else NearbyInk.copy(.58f),
                         fontSize = 13.sp,
+                        fontWeight = if (isReady) FontWeight.SemiBold else FontWeight.Normal,
                     )
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     LudoColor.entries.forEach { color ->
-                        val enabled = color !in unavailable
+                        val isSelectable = !isReady && (color !in unavailable)
+                        val isSelected = selected == color
                         Box(
                             Modifier
                                 .size(50.dp)
-                                .background(color.uiColor().copy(alpha = if (enabled) 1f else .25f), CircleShape)
-                                .clickable(enabled = enabled) { onProfile(name, color, false) }
+                                .background(
+                                    color.uiColor().copy(alpha = if (isSelectable || isSelected) 1f else .25f),
+                                    CircleShape,
+                                )
+                                .clickable(enabled = isSelectable) { onProfile(name, color, false) }
                                 .testTag("guest_color_${color.name.lowercase()}"),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (selected == color) {
+                            if (isSelected) {
                                 Text("✓", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -139,15 +149,15 @@ fun GuestLobbyScreen(
 
         Spacer(Modifier.weight(1f))
         Button(
-            onClick = { onProfile(name, selected, !(me?.ready ?: false)) },
+            onClick = { onProfile(name, selected, !isReady) },
             enabled = selected != null,
             modifier = Modifier.fillMaxWidth().height(58.dp).testTag("guest_ready"),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (me?.ready == true) NearbyInk.copy(.7f) else NearbyGreen,
+                containerColor = if (isReady) NearbyInk.copy(.7f) else NearbyGreen,
             ),
             shape = RoundedCornerShape(18.dp),
         ) {
-            Text(if (me?.ready == true) "Not ready" else "I'm ready", fontSize = 17.sp)
+            Text(if (isReady) "Not ready" else "I'm ready", fontSize = 17.sp)
         }
     }
 }

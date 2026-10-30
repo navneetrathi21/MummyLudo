@@ -156,6 +156,11 @@ fun MummyLudoApp(
                     gameVm.clearAndCloseGame()
                     page = Page.HOME
                 },
+                onQuit = {
+                    nearbyVm.closeAllSessions()
+                    gameVm.clearAndCloseGame()
+                    onExitApp()
+                },
             )
             Page.RULES -> RulesScreen { page = Page.HOME }
             Page.NEARBY -> NearbyEntryScreen(
@@ -244,14 +249,18 @@ internal fun localWifiAddress(): String? = runCatching {
                 name.startsWith("wlan") -> 100
                 name.startsWith("ap") || name.startsWith("softap") -> 90
                 name.startsWith("eth") || name.startsWith("en") -> 80
+                name.startsWith("rndis") || name.startsWith("usb") -> 70
                 name.startsWith("rmnet") || name.startsWith("ccmni") -> -10
                 else -> 0
             }
         }
-    interfaces.flatMap { it.inetAddresses.toList() }
-        .filterIsInstance<Inet4Address>()
-        .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }
-        ?.hostAddress
+    for (iface in interfaces) {
+        val addr = iface.inetAddresses.toList()
+            .filterIsInstance<Inet4Address>()
+            .firstOrNull { !it.isLoopbackAddress && !it.isLinkLocalAddress }
+        if (addr != null) return@runCatching addr.hostAddress
+    }
+    null
 }.getOrNull()
 
 internal fun createSeats(

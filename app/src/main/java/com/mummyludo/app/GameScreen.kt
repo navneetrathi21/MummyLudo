@@ -44,8 +44,10 @@ internal fun GameScreen(
     localColor: LudoColor? = null,
     onNearbyAction: ((NearbyGameAction) -> Unit)? = null,
     onClose: () -> Unit,
+    onQuit: () -> Unit = onClose,
 ) {
     var showClose by remember { mutableStateOf(false) }
+    var showQuit by remember { mutableStateOf(false) }
     var rolling by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf(false) }
     var animatedFace by remember { mutableIntStateOf(1) }
@@ -57,7 +59,7 @@ internal fun GameScreen(
     val legal = remember(state) { engine.legalMoves(state) }
     val seat = state.seats[state.activeSeat]
 
-    BackHandler(enabled = !showClose) { showClose = true }
+    BackHandler(enabled = !showClose && !showQuit) { showClose = true }
 
     LaunchedEffect(state.completed) {
         if (state.completed) {
@@ -151,7 +153,13 @@ internal fun GameScreen(
                 Text("${seat.name} · ${seat.color.label}", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                 Text("Turn ${state.turn} · ${state.message}", color = Ink.copy(.62f), fontSize = 13.sp)
             }
-            TextButton(onClick = { showClose = true }) { Text("Close") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { showClose = true }, modifier = Modifier.testTag("game_close_button")) { Text("Close") }
+                Spacer(Modifier.width(2.dp))
+                TextButton(onClick = { showQuit = true }, modifier = Modifier.testTag("game_quit_button")) {
+                    Text("Quit", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
@@ -265,9 +273,49 @@ internal fun GameScreen(
     if (showClose) AlertDialog(
         onDismissRequest = { showClose = false },
         title = { Text("Close this game?") },
-        text = { Text("This match will be discarded.") },
-        confirmButton = { TextButton(onClick = onClose) { Text("Close game") } },
+        text = { Text("Exit to the main menu. This match will be discarded.") },
+        confirmButton = {
+            Row {
+                TextButton(
+                    onClick = {
+                        showClose = false
+                        onClose()
+                    },
+                    modifier = Modifier.testTag("game_confirm_close_button"),
+                ) {
+                    Text("Close game")
+                }
+                Spacer(Modifier.width(4.dp))
+                TextButton(
+                    onClick = {
+                        showClose = false
+                        onQuit()
+                    },
+                    modifier = Modifier.testTag("game_quit_app_button"),
+                ) {
+                    Text("Quit app", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
         dismissButton = { TextButton(onClick = { showClose = false }) { Text("Keep playing") } },
+    )
+
+    if (showQuit) AlertDialog(
+        onDismissRequest = { showQuit = false },
+        title = { Text("Quit Mummy Ludo?") },
+        text = { Text("Are you sure you want to quit the game and exit the application?") },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    showQuit = false
+                    onQuit()
+                },
+                modifier = Modifier.testTag("game_confirm_quit_button"),
+            ) {
+                Text("Quit app", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = { TextButton(onClick = { showQuit = false }) { Text("Cancel") } },
     )
 }
 

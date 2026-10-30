@@ -61,7 +61,7 @@ fun HostLobbyScreen(
     onProfile: (String, LudoColor?, Boolean) -> Unit = { _, _, _ -> },
     onStart: () -> Unit,
 ) {
-    val joinCode = hostAddress?.let { JoinPayloadCodec.encode(JoinPayload(lobby.sessionId, it, 42871, lobby.joinToken)) }
+    val joinCode = hostAddress?.let { JoinPayloadCodec.encode(JoinPayload(lobby.roomCode, it, 42871, lobby.joinToken)) }
     val hostPlayer = lobby.players.firstOrNull { it.isHost }
     val selectedColor = hostPlayer?.color
     val isReady = hostPlayer?.ready ?: true

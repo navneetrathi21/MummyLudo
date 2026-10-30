@@ -17,6 +17,7 @@ import com.mummyludo.app.game.Seat
 import com.mummyludo.app.nearby.NearbyGameAction
 import com.mummyludo.app.nearby.NearbyGameEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -262,6 +263,33 @@ class GameScreenTest {
         ) {
             drawConfetti(0.5f)
         }
+    }
+
+    @Test
+    fun gameScreenQuitButtonShowsDialogAndInvokesOnQuit() {
+        var quit = false
+        val engine = LudoEngine { 1 }
+        val state = engine.newGame(humanSeats)
+        compose.setContent {
+            GameScreen(
+                state = state,
+                engine = engine,
+                onState = {},
+                onAutoPlay = {},
+                autoPlayRunning = false,
+                onClose = {},
+                onQuit = { quit = true },
+            )
+        }
+
+        compose.onNodeWithText("Quit").performClick()
+        compose.onNodeWithText("Quit Mummy Ludo?").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        assertFalse(quit)
+
+        compose.onNodeWithText("Quit").performClick()
+        compose.onNodeWithTag("game_confirm_quit_button").performClick()
+        assertTrue(quit)
     }
 
     private fun render(

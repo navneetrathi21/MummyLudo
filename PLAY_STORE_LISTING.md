@@ -141,14 +141,14 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 
 ---
 
-## 8. Release Notes (What's New in v0.2.4)
+## 8. Release Notes (What's New in v0.2.5)
 
 ### English (en-US)
 ```
-What's new in version 0.2.4:
-• Fixed an issue where selecting a color in nearby multiplayer showed "Connection to host was lost".
-• Locked player color and name changes once "Ready" is clicked; players must unready to make changes.
-• Enhanced local Wi-Fi multiplayer stability and background socket handling.
+What's new in version 0.2.5:
+• Fixed room code mismatch when scanning host QR codes in Nearby multiplayer.
+• Improved local network host discovery when joining via 4-digit code.
+• Added an in-game Quit option to exit the application cleanly.
 ```
 
 ---

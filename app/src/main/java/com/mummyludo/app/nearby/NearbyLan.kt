@@ -59,7 +59,9 @@ class NearbyLanHost(
                     val join = reader.readLine()?.split('|') ?: return@thread
                     if (join.size >= 2 && join[0] == "CHECK") {
                         val requested = join[1].trim()
-                        if (requested.equals(lobby.joinToken.trim(), ignoreCase = true) || requested.equals(lobby.roomCode.trim(), ignoreCase = true)) {
+                        if (requested.equals(lobby.joinToken.trim(), ignoreCase = true) ||
+                            requested.equals(lobby.roomCode.trim(), ignoreCase = true) ||
+                            requested.equals(lobby.sessionId.trim(), ignoreCase = true)) {
                             writer.send("ROOM|${lobby.roomCode}")
                         } else {
                             writer.send("MISMATCH")
@@ -67,7 +69,11 @@ class NearbyLanHost(
                         return@thread
                     }
                     val token = decode(join[1]).trim()
-                    if (join.size != 4 || join[0] != "JOIN" || (!token.equals(lobby.joinToken.trim(), ignoreCase = true) && !token.equals(lobby.roomCode.trim(), ignoreCase = true))) {
+                    if (join.size != 4 || join[0] != "JOIN" || (
+                        !token.equals(lobby.joinToken.trim(), ignoreCase = true) &&
+                        !token.equals(lobby.roomCode.trim(), ignoreCase = true) &&
+                        !token.equals(lobby.sessionId.trim(), ignoreCase = true)
+                    )) {
                         writer.send("ERROR|${encode("This game code has expired")}")
                         return@thread
                     }
@@ -325,7 +331,7 @@ suspend fun discoverHostByRoomCode(
 
     val priorityIps = listOfNotNull("127.0.0.1".takeIf { localIp == null || localIp == "127.0.0.1" }, localIp).distinct()
     for (ip in priorityIps) {
-        if (checkHost(ip, port, cleanCode)) {
+        if (checkHost(ip, port, cleanCode, timeoutMs = 300)) {
             return@withContext JoinPayload(
                 sessionId = cleanCode,
                 hostAddress = ip,
@@ -337,31 +343,55 @@ suspend fun discoverHostByRoomCode(
 
     if (localIp != null && localIp.count { it == '.' } == 3) {
         val subnetPrefix = localIp.substringBeforeLast('.') + "."
-        val foundIp = subnetRange.map { i -> "$subnetPrefix$i" }
-            .filterNot { it in priorityIps }
-            .map { ip ->
-                async {
-                    if (checkHost(ip, port, cleanCode, timeoutMs = 200)) ip else null
-                }
-            }
-            .awaitAll()
-            .firstOrNull { it != null }
+        val lastOctet = localIp.substringAfterLast('.').toIntOrNull() ?: 100
 
-        if (foundIp != null) {
-            return@withContext JoinPayload(
-                sessionId = cleanCode,
-                hostAddress = foundIp,
-                port = port,
-                joinToken = cleanCode,
-            )
+        val candidateIps = mutableListOf<String>()
+        val gateway = "${subnetPrefix}1"
+        if (gateway !in priorityIps && 1 in subnetRange) {
+            candidateIps.add(gateway)
+        }
+        for (offset in 1..20) {
+            val down = lastOctet - offset
+            if (down in subnetRange && "${subnetPrefix}$down" !in candidateIps && "${subnetPrefix}$down" !in priorityIps) {
+                candidateIps.add("${subnetPrefix}$down")
+            }
+            val up = lastOctet + offset
+            if (up in subnetRange && "${subnetPrefix}$up" !in candidateIps && "${subnetPrefix}$up" !in priorityIps) {
+                candidateIps.add("${subnetPrefix}$up")
+            }
+        }
+        for (i in subnetRange) {
+            val ip = "$subnetPrefix$i"
+            if (ip !in candidateIps && ip !in priorityIps) {
+                candidateIps.add(ip)
+            }
+        }
+
+        val chunkSize = 24
+        for (chunk in candidateIps.chunked(chunkSize)) {
+            val foundIp = chunk.map { ip ->
+                async {
+                    if (checkHost(ip, port, cleanCode, timeoutMs = 600)) ip else null
+                }
+            }.awaitAll().firstOrNull { it != null }
+
+            if (foundIp != null) {
+                return@withContext JoinPayload(
+                    sessionId = cleanCode,
+                    hostAddress = foundIp,
+                    port = port,
+                    joinToken = cleanCode,
+                )
+            }
         }
     }
 
     null
 }
 
-internal fun checkHost(ip: String, port: Int, roomCode: String, timeoutMs: Int = 200): Boolean = runCatching {
+internal fun checkHost(ip: String, port: Int, roomCode: String, timeoutMs: Int = 600): Boolean = runCatching {
     Socket().use { socket ->
+        socket.tcpNoDelay = true
         socket.setSoLinger(true, 0)
         socket.connect(InetSocketAddress(ip, port), timeoutMs)
         socket.soTimeout = timeoutMs

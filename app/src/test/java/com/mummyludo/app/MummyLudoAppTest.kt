@@ -147,6 +147,54 @@ class MummyLudoAppTest {
     }
 
     @Test
+    fun gameScreenQuitExitsApplication() {
+        var appExited = false
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedEngine = LudoEngine { 3 },
+                    onExitApp = { appExited = true },
+                )
+            }
+        }
+        compose.onNodeWithTag("home_new_game").performClick()
+        compose.onNodeWithTag("setup_start").performClick()
+        compose.onNodeWithText("Player 1 · Red").assertIsDisplayed()
+
+        // Test Quit button -> Cancel
+        compose.onNodeWithTag("game_quit_button").performClick()
+        compose.onNodeWithText("Quit Mummy Ludo?").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        assertFalse(appExited)
+
+        // Test Quit button -> Confirm Quit app
+        compose.onNodeWithTag("game_quit_button").performClick()
+        compose.onNodeWithTag("game_confirm_quit_button").performClick()
+        assertTrue(appExited)
+    }
+
+    @Test
+    fun gameScreenCloseDialogQuitAppExitsApplication() {
+        var appExited = false
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedEngine = LudoEngine { 3 },
+                    onExitApp = { appExited = true },
+                )
+            }
+        }
+        compose.onNodeWithTag("home_new_game").performClick()
+        compose.onNodeWithTag("setup_start").performClick()
+        compose.onNodeWithText("Player 1 · Red").assertIsDisplayed()
+
+        // Open Close dialog and click "Quit app"
+        compose.onNodeWithTag("game_close_button").performClick()
+        compose.onNodeWithTag("game_quit_app_button").performClick()
+        assertTrue(appExited)
+    }
+
+    @Test
     fun nearbyHostRequestsWifiShowsLobbyAndClosesCleanly() {
         var wifiRequests = 0
         var wifiSettings = 0

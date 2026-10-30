@@ -97,4 +97,24 @@ All notable changes to this project will be recorded here.
 - Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB, versionCode 6).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 
+## [0.2.5] - 2026-10-30
+### Fixed
+- **4-Digit Room Code & QR Code Synchronization**:
+  - Fixed room code mismatch where scanning the Host's QR code populated a raw session hex snippet instead of the 4-digit code shown on the host display: `HostLobbyScreen` now explicitly encodes the shared 4-digit `lobby.roomCode` into the QR payload (`JoinPayload`), ensuring scanning and verbal 4-digit sharing match identically.
+  - Updated `NearbyLanHost.handle` to accept room codes, session IDs, and join tokens interchangeably, preventing "code expired" or token rejection errors across both QR and manual connection paths.
+- **LAN Host Subnet Discovery ("Server Not Found" Fix)**:
+  - Fixed manual 4-digit code entry failing with "No game found with code ... on this Wi-Fi" (`discoverHostByRoomCode`): replaced unthrottled 254-thread concurrent socket flood with prioritized subnet probing.
+  - Probes default gateway (`.1`) first (crucial for mobile hotspot hosts), then prioritizes adjacent IPs surrounding the client's current IP (where DHCP typically allocates leases), and chunks remaining subnet scans into batches of 24 sockets with increased timeout (600ms) to ensure ARP resolution and TCP handshakes succeed without socket descriptor exhaustion.
+- **Dedicated In-Game "Quit App" Option**:
+  - Added a dedicated "Quit" action in the active game header next to "Close", allowing players to completely quit and exit the application via an explicit confirmation dialog.
+  - Added a direct "Quit app" option to the existing match discard ("Close") dialog, giving players the choice to either return to the main menu or exit the app immediately.
+
+### Changed
+- Bumped application version to `versionCode = 7` and `versionName = "0.2.5"` in `app/build.gradle.kts` for Google Play Store upload.
+
+### Verification & Metrics
+- All 164 unit tests passing with 0 failures (100% pass rate).
+- Whole-app line coverage reached **98.87%** (2,542 / 2,571 lines covered across all 21 source files; every file $\ge 96.0\%$).
+
+
 

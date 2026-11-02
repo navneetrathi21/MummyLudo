@@ -110,10 +110,11 @@ All notable changes to this project will be recorded here.
   - Added a direct "Quit app" option to the existing match discard ("Close") dialog, giving players the choice to either return to the main menu or exit the app immediately.
 
 ### Changed
+- Replaced "How to play" section with a direct "Send feedback / Rate us" button on the home screen that opens the app's Google Play Store page for user ratings and feedback.
 - Bumped application version to `versionCode = 7` and `versionName = "0.2.5"` in `app/build.gradle.kts` for Google Play Store upload.
 
 ### Verification & Metrics
-- All 164 unit tests passing with 0 failures (100% pass rate).
+- All 165 unit tests passing with 0 failures (100% pass rate).
 - Whole-app line coverage reached **98.87%** (2,542 / 2,571 lines covered across all 21 source files; every file $\ge 96.0\%$).
 
 

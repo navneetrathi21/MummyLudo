@@ -214,6 +214,15 @@ class MainActivityTest {
         assertTrue(activity.hasLocationPermission)
     }
 
+    @Test
+    fun playStoreListingOpensMarketUri() {
+        val activity = createActivity(fakeManager().apply { setUpdateNotAvailable() })
+        activity.openPlayStoreListing()
+        val nextIntent = shadowOf(activity).nextStartedActivity
+        assertEquals(Intent.ACTION_VIEW, nextIntent.action)
+        assertEquals("market://details?id=${activity.packageName}", nextIntent.dataString)
+    }
+
     private fun fakeManager() = FakeAppUpdateManager(RuntimeEnvironment.getApplication())
 
     @Suppress("DEPRECATION")

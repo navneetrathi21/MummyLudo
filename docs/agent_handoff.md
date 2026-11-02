@@ -60,8 +60,8 @@ All production source code lives under `app/src/main/java/com/mummyludo/app/`:
 | [`MainActivity.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/MainActivity.kt) | `com.mummyludo.app` | Android Activity lifecycle, Play In-App Update management (`AppUpdateManager`), ZXing QR scanner launcher, and Wi-Fi SSID resolution. |
 | [`GameScreen.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/GameScreen.kt) | `com.mummyludo.app` | Active board screen; handles dice rolling overlay animations, token step-by-step movement delays, bot pacing, and confetti on completion. |
 | [`LudoBoard.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/LudoBoard.kt) | `com.mummyludo.app` | Custom Compose `Canvas` rendering of 15×15 grid, colored yards, inset homes, track cells, star safe squares, short arrows, and pawn drawings. |
-| [`HomeSetupScreens.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/HomeSetupScreens.kt) | `com.mummyludo.app` | `HomeScreen` (New Game, Play Nearby, How to Play) and `SetupScreen` (player/bot counts 1..3, reverse duel opposite colors). |
-| [`ResultRulesScreens.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/ResultRulesScreens.kt) | `com.mummyludo.app` | `RulesScreen` (6-point rules overview card) and unused/private `ResultScreen` (results handled inline in `GameScreen`). |
+| [`HomeSetupScreens.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/HomeSetupScreens.kt) | `com.mummyludo.app` | `HomeScreen` (New Game, Play Nearby, Send Feedback / Rate Us) and `SetupScreen` (player/bot counts 1..3, reverse duel opposite colors). |
+| [`ResultRulesScreens.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/ResultRulesScreens.kt) | `com.mummyludo.app` | `ResultScreen` winner display and action buttons (results handled inline in `GameScreen`). |
 | [`AppTheme.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/AppTheme.kt) | `com.mummyludo.app` | Color palette (`Cream`, `Ink`, `Sage`, `Red`, `Green`, `Yellow`, `Blue`) and Material3 `MummyLudoTheme`. |
 | [`NearbyLan.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/nearby/NearbyLan.kt) | `com.mummyludo.app.nearby` | Host socket server (`ServerSocket` on port 42871) and client socket thread (`Socket`) using Base64 wire protocol. |
 | [`NearbySession.kt`](file:///Users/titan/Documents/MummyLudo/app/src/main/java/com/mummyludo/app/nearby/NearbySession.kt) | `com.mummyludo.app.nearby` | `NearbyLobbyCoordinator`, lobby state models, SSID cleaner, Wi-Fi permission helper, and `mummyludo://join` URI codec. |
@@ -81,7 +81,7 @@ All production source code lives under `app/src/main/java/com/mummyludo/app/`:
 2. **Central State Owner (`MummyLudoApp`)**:
    - Navigation is controlled by an internal enum:
      ```kotlin
-     private enum class Page { HOME, SETUP, GAME, RULES, NEARBY, HOST_LOBBY, JOIN_NEARBY, GUEST_LOBBY }
+     private enum class Page { WELCOME, HOME, SETUP, GAME, NEARBY, HOST_LOBBY, JOIN_NEARBY, GUEST_LOBBY }
      ```
    - Navigation is executed via a top-level `when (page)` block.
    - All critical domain state (`game: GameState?`, `nearbyLobby`, `clientLobby`, `hostSession`, `clientSession`, `nearbyEvent`) lives in Compose `remember { mutableStateOf(...) }` inside `MummyLudoApp`.

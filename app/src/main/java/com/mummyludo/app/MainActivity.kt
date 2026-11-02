@@ -92,6 +92,7 @@ class MainActivity : ComponentActivity() {
                         onRequestWifiPermission = { requestWifiPermission() },
                         onScanGameCode = { requestCameraAndScan() },
                         onExitApp = { finish() },
+                        onRateFeedback = ::openPlayStoreListing,
                     )
                     if (updateReadyToInstall) {
                         UpdateReadyDialog(
@@ -122,6 +123,15 @@ class MainActivity : ComponentActivity() {
             data = Uri.fromParts("package", packageName, null)
         }
         startActivity(intent)
+    }
+
+    internal fun openPlayStoreListing() {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+        }
     }
 
     internal fun requestCameraAndScan() {

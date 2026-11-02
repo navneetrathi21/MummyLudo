@@ -53,18 +53,25 @@ class MummyLudoAppTest {
     }
 
     @Test
-    fun homeRulesAndSystemBackNavigationWorkIncludingDoubleBackExit() {
+    fun homeNavigationFeedbackAndSystemBackNavigationWorkIncludingDoubleBackExit() {
         var exits = 0
+        var feedbackTriggered = false
         lateinit var backDispatcher: OnBackPressedDispatcher
         compose.setContent {
             backDispatcher = requireNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
             MummyLudoTheme {
-                MummyLudoApp(onExitApp = { exits++ })
+                MummyLudoApp(
+                    onExitApp = { exits++ },
+                    onRateFeedback = { feedbackTriggered = true },
+                )
             }
         }
 
-        compose.onNodeWithText("How to play").performClick()
-        compose.onNodeWithText("Exact movement is required to finish.", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag("home_rate_feedback").performClick()
+        assertTrue(feedbackTriggered)
+
+        compose.onNodeWithTag("home_new_game").performClick()
+        compose.onNodeWithText("Match setup").assertIsDisplayed()
         compose.runOnIdle { backDispatcher.onBackPressed() }
         compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()
 
@@ -72,6 +79,17 @@ class MummyLudoAppTest {
         assertEquals(0, exits)
         compose.runOnIdle { backDispatcher.onBackPressed() }
         assertEquals(1, exits)
+    }
+
+    @Test
+    fun defaultRateFeedbackOpensPlayStoreIntentSafely() {
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp()
+            }
+        }
+
+        compose.onNodeWithTag("home_rate_feedback").performClick()
     }
 
     @Test

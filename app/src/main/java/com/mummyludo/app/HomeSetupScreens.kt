@@ -25,7 +25,7 @@ internal fun HomeScreen(
     onContinueGame: () -> Unit = {},
     onNewGame: () -> Unit,
     onNearby: () -> Unit,
-    onRules: () -> Unit,
+    onRateFeedback: () -> Unit = {},
 ) {
     Column(
         Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 36.dp),
@@ -65,8 +65,12 @@ internal fun HomeScreen(
             Text("Play nearby")
         }
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = onRules, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) {
-            Text("How to play")
+        OutlinedButton(
+            onClick = onRateFeedback,
+            modifier = Modifier.fillMaxWidth().height(54.dp).testTag("home_rate_feedback"),
+            shape = RoundedCornerShape(18.dp),
+        ) {
+            Text("Send feedback / Rate us")
         }
     }
 }

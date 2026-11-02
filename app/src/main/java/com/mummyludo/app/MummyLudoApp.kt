@@ -1,5 +1,7 @@
 package com.mummyludo.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -15,7 +17,7 @@ import com.mummyludo.app.viewmodel.*
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
-internal enum class Page { WELCOME, HOME, SETUP, GAME, RULES, NEARBY, HOST_LOBBY, JOIN_NEARBY, GUEST_LOBBY }
+internal enum class Page { WELCOME, HOME, SETUP, GAME, NEARBY, HOST_LOBBY, JOIN_NEARBY, GUEST_LOBBY }
 
 @Composable
 fun MummyLudoApp(
@@ -34,8 +36,18 @@ fun MummyLudoApp(
     onRequestWifiPermission: () -> Unit = {},
     onScanGameCode: () -> Unit = {},
     onExitApp: () -> Unit = {},
+    onRateFeedback: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val handleRateFeedback = onRateFeedback ?: {
+        val pkg = context.packageName
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg"))
+        try {
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$pkg")))
+        }
+    }
     val appScope = rememberCoroutineScope()
     val engine = providedEngine ?: remember { LudoEngine() }
     val repository = providedRepository ?: remember { SqliteGameRepository(context) }
@@ -73,7 +85,7 @@ fun MummyLudoApp(
                     Toast.makeText(context, "Press back again to exit", Toast.LENGTH_SHORT).show()
                 }
             }
-            Page.SETUP, Page.RULES, Page.NEARBY -> page = Page.HOME
+            Page.SETUP, Page.NEARBY -> page = Page.HOME
             Page.HOST_LOBBY -> {
                 nearbyVm.closeHost()
                 page = Page.NEARBY
@@ -108,7 +120,7 @@ fun MummyLudoApp(
                 },
                 onNewGame = { page = Page.SETUP },
                 onNearby = { page = Page.NEARBY },
-                onRules = { page = Page.RULES },
+                onRateFeedback = handleRateFeedback,
             )
             Page.SETUP -> SetupScreen(
                 humanCount = humanCount,
@@ -162,7 +174,6 @@ fun MummyLudoApp(
                     onExitApp()
                 },
             )
-            Page.RULES -> RulesScreen { page = Page.HOME }
             Page.NEARBY -> NearbyEntryScreen(
                 onBack = { page = Page.HOME },
                 onHost = {

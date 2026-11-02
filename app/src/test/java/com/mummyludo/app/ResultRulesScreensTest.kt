@@ -18,27 +18,6 @@ class ResultRulesScreensTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun rulesScreen_displays_correct_content() {
-        var backClicked = false
-        composeRule.setContent {
-            MummyLudoTheme {
-                RulesScreen(onBack = { backClicked = true })
-            }
-        }
-
-        // Verify title
-        composeRule.onNodeWithText("How to play").assertIsDisplayed()
-
-        // Verify rules content exists
-        composeRule.onNodeWithText("Roll a 6 to enter a token", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Safe squares cannot be captured", substring = true).assertIsDisplayed()
-
-        // Verify back button
-        composeRule.onNodeWithText("‹ Back").assertIsDisplayed().performClick()
-        assertTrue(backClicked)
-    }
-
-    @Test
     fun result_screen_shows_winner_and_handles_clicks() {
         var againClicked = false
         var homeClicked = false

@@ -38,26 +38,3 @@ internal fun ResultScreen(state: GameState, onAgain: () -> Unit, onHome: () -> U
         TextButton(onClick = onHome) { Text("Home") }
     }
 }
-
-@Composable
-internal fun RulesScreen(onBack: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
-        TextButton(onClick = onBack) { Text("‹ Back") }
-        Text("How to play", fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(18.dp))
-        val rules = listOf(
-            "Roll a 6 to enter a token. Three consecutive 6s are discarded, then the same player rolls again.",
-            "Land on an arrow tail to move to its head and earn an extra roll.",
-            "Capturing earns one extra roll. An arrow capture therefore earns two.",
-            "Two same-color tokens can move as a double on even rolls, travelling half the die value.",
-            "A single cannot capture a double. A double captures two from a triple and all four from a four-token stack.",
-            "Safe squares cannot be captured. Exact movement is required to finish.",
-        )
-        rules.forEachIndexed { index, rule ->
-            Row(Modifier.padding(vertical = 11.dp)) {
-                Surface(shape = CircleShape, color = Sage, modifier = Modifier.size(28.dp)) { Box(contentAlignment = Alignment.Center) { Text("${index + 1}", color = Color.White) } }
-                Spacer(Modifier.width(12.dp)); Text(rule, fontSize = 16.sp, lineHeight = 23.sp)
-            }
-        }
-    }
-}

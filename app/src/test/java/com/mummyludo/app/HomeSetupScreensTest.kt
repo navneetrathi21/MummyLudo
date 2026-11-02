@@ -24,7 +24,7 @@ class HomeSetupScreensTest {
     fun `home screen without saved game shows new game as primary button`() {
         var newGameClicked = false
         var nearbyClicked = false
-        var rulesClicked = false
+        var feedbackClicked = false
 
         compose.setContent {
             MummyLudoTheme {
@@ -32,7 +32,7 @@ class HomeSetupScreensTest {
                     hasSavedGame = false,
                     onNewGame = { newGameClicked = true },
                     onNearby = { nearbyClicked = true },
-                    onRules = { rulesClicked = true },
+                    onRateFeedback = { feedbackClicked = true },
                 )
             }
         }
@@ -45,8 +45,9 @@ class HomeSetupScreensTest {
         compose.onNodeWithTag("home_play_nearby").assertIsDisplayed().performClick()
         assertTrue(nearbyClicked)
 
-        compose.onNodeWithText("How to play").assertIsDisplayed().performClick()
-        assertTrue(rulesClicked)
+        compose.onNodeWithTag("home_rate_feedback").assertIsDisplayed().performClick()
+        assertTrue(feedbackClicked)
+        compose.onNodeWithText("Send feedback / Rate us").assertIsDisplayed()
     }
 
     @Test
@@ -61,7 +62,7 @@ class HomeSetupScreensTest {
                     onContinueGame = { continueClicked = true },
                     onNewGame = { newGameClicked = true },
                     onNearby = {},
-                    onRules = {},
+                    onRateFeedback = {},
                 )
             }
         }
@@ -124,7 +125,7 @@ class HomeSetupScreensTest {
                     playerName = "Cleo",
                     onNewGame = {},
                     onNearby = {},
-                    onRules = {},
+                    onRateFeedback = {},
                 )
             }
         }

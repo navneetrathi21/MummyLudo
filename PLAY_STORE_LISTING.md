@@ -149,6 +149,7 @@ What's new in version 0.2.5:
 • Fixed room code mismatch when scanning host QR codes in Nearby multiplayer.
 • Improved local network host discovery when joining via 4-digit code.
 • Added an in-game Quit option to exit the application cleanly.
+• Added a direct Send feedback / Rate us option on the home screen.
 ```
 
 ---

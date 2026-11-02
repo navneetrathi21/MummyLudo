@@ -47,7 +47,7 @@ class HomeSetupScreensTest {
 
         compose.onNodeWithTag("home_rate_feedback").assertIsDisplayed().performClick()
         assertTrue(feedbackClicked)
-        compose.onNodeWithText("Send feedback / Rate us").assertIsDisplayed()
+        compose.onNodeWithText("Leave a review").assertIsDisplayed()
     }
 
     @Test

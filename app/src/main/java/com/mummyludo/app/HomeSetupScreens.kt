@@ -70,7 +70,7 @@ internal fun HomeScreen(
             modifier = Modifier.fillMaxWidth().height(54.dp).testTag("home_rate_feedback"),
             shape = RoundedCornerShape(18.dp),
         ) {
-            Text("Send feedback / Rate us")
+            Text("Leave a review")
         }
     }
 }

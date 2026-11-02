@@ -20,7 +20,7 @@ Last completed measurement: 2026-11-02, using `./gradlew testDebugUnitTest creat
 | App UI | `MainActivity.kt` | 🟢 96.6% (142/147) | Done | Codex / Antigravity | Lifecycle, permissions, direct Wi-Fi SSID detection, Play Store listing intent, App Settings launcher pass |
 | App UI | `MummyLudoApp.kt` | 🟢 96.4% (211/219) | Done | Antigravity | In-game Quit app propagation, host profile propagation to VM, priority-based Wi-Fi detection, location permission propagation, Settings shortcut |
 | Welcome UI | `WelcomeScreen.kt` | 🟢 100.0% (67/67) | Done | Antigravity | First-time onboarding screen, logo, interactive name input, validation, continue button |
-| HomeSetupScreens | `HomeSetupScreens.kt` | 🟢 100.0% (105/105) | Done | Codex / Antigravity | Personalized greeting banner, setup limits, reverse duel, continue-game, rate us / feedback, and start-game flows pass |
+| HomeSetupScreens | `HomeSetupScreens.kt` | 🟢 100.0% (105/105) | Done | Codex / Antigravity | Personalized greeting banner, setup limits, reverse duel, continue-game, review / rating, and start-game flows pass |
 | Game UI | `GameScreen.kt` | 🟢 99.1% (323/326) | Done | Codex / Antigravity | In-game Quit button and confirmation dialog, Close dialog with direct Quit app option, local/nearby rolls, bot choices, token animation, controls, and confetti canvas pass |
 | Game UI | `LudoBoard.kt` | 🟢 100.0% (168/168) | Done | Antigravity | Board canvas, yards, stars, directional arrows, pawn geometry, spreads 1..4, legal highlights, click handlers, and coordinate transforms pass |
 | App UI | `ResultRulesScreens.kt` | 🟢 100.0% (40/40) | Done | Antigravity | Result screen winner and button click tests pass |

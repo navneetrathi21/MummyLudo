@@ -113,10 +113,10 @@ class MummyLudoAppTest {
 
         compose.onNodeWithTag("setup_start").performClick()
         compose.onNodeWithText("Player 1 · Red").assertIsDisplayed()
-        compose.onNodeWithText("Close").performClick()
+        compose.onNodeWithText("Quit").performClick()
         compose.onNodeWithText("Keep playing").performClick()
-        compose.onNodeWithText("Close").performClick()
-        compose.onNodeWithText("Close game").performClick()
+        compose.onNodeWithText("Quit").performClick()
+        compose.onNodeWithText("Quit game").performClick()
         compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()
     }
 
@@ -165,7 +165,7 @@ class MummyLudoAppTest {
     }
 
     @Test
-    fun gameScreenQuitExitsApplication() {
+    fun gameScreenQuitButtonShowsDialogAndQuitsGameToHome() {
         var appExited = false
         compose.setContent {
             MummyLudoTheme {
@@ -179,37 +179,18 @@ class MummyLudoAppTest {
         compose.onNodeWithTag("setup_start").performClick()
         compose.onNodeWithText("Player 1 · Red").assertIsDisplayed()
 
-        // Test Quit button -> Cancel
+        // Test Quit button -> Keep playing
         compose.onNodeWithTag("game_quit_button").performClick()
-        compose.onNodeWithText("Quit Mummy Ludo?").assertIsDisplayed()
-        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Quit this game?").assertIsDisplayed()
+        compose.onNodeWithTag("game_cancel_quit_button").performClick()
+        compose.onNodeWithText("Player 1 · Red").assertIsDisplayed()
         assertFalse(appExited)
 
-        // Test Quit button -> Confirm Quit app
+        // Test Quit button -> Confirm Quit game
         compose.onNodeWithTag("game_quit_button").performClick()
         compose.onNodeWithTag("game_confirm_quit_button").performClick()
-        assertTrue(appExited)
-    }
-
-    @Test
-    fun gameScreenCloseDialogQuitAppExitsApplication() {
-        var appExited = false
-        compose.setContent {
-            MummyLudoTheme {
-                MummyLudoApp(
-                    providedEngine = LudoEngine { 3 },
-                    onExitApp = { appExited = true },
-                )
-            }
-        }
-        compose.onNodeWithTag("home_new_game").performClick()
-        compose.onNodeWithTag("setup_start").performClick()
-        compose.onNodeWithText("Player 1 · Red").assertIsDisplayed()
-
-        // Open Close dialog and click "Quit app"
-        compose.onNodeWithTag("game_close_button").performClick()
-        compose.onNodeWithTag("game_quit_app_button").performClick()
-        assertTrue(appExited)
+        compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()
+        assertFalse(appExited)
     }
 
     @Test
@@ -409,8 +390,8 @@ class MummyLudoAppTest {
             }
             host.broadcastGameEvent(NearbyGameEvent(1, NearbyGameAction.Roll, 3))
             Thread.sleep(2_000)
-            compose.onNodeWithText("Close").performClick()
-            compose.onNodeWithText("Close game").performClick()
+            compose.onNodeWithText("Quit").performClick()
+            compose.onNodeWithText("Quit game").performClick()
             compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()
         } finally {
             host.close()
@@ -473,8 +454,8 @@ class MummyLudoAppTest {
                 compose.onAllNodesWithText("Player 1 · Red").fetchSemanticsNodes().isNotEmpty()
             }
 
-            compose.onNodeWithText("Close").performClick()
-            compose.onNodeWithText("Close game").performClick()
+            compose.onNodeWithText("Quit").performClick()
+            compose.onNodeWithText("Quit game").performClick()
             compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()
         } finally {
             client.close()

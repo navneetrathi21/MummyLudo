@@ -105,17 +105,18 @@ All notable changes to this project will be recorded here.
 - **LAN Host Subnet Discovery ("Server Not Found" Fix)**:
   - Fixed manual 4-digit code entry failing with "No game found with code ... on this Wi-Fi" (`discoverHostByRoomCode`): replaced unthrottled 254-thread concurrent socket flood with prioritized subnet probing.
   - Probes default gateway (`.1`) first (crucial for mobile hotspot hosts), then prioritizes adjacent IPs surrounding the client's current IP (where DHCP typically allocates leases), and chunks remaining subnet scans into batches of 24 sockets with increased timeout (600ms) to ensure ARP resolution and TCP handshakes succeed without socket descriptor exhaustion.
-- **Dedicated In-Game "Quit App" Option**:
-  - Added a dedicated "Quit" action in the active game header next to "Close", allowing players to completely quit and exit the application via an explicit confirmation dialog.
-  - Added a direct "Quit app" option to the existing match discard ("Close") dialog, giving players the choice to either return to the main menu or exit the app immediately.
+- **In-Game "Quit" Button (Discards Active Match)**:
+  - Replaced the dual "Close" and "Quit app" buttons with a single, clear "Quit" button in the active game header.
+  - Tapping "Quit" (or pressing Android system back) shows a confirmation dialog with options to "Quit game" (discards the active match and returns cleanly to the main menu) or "Keep playing".
+  - Removed app termination from the in-game flow so users return to the home screen rather than killing the app.
 
 ### Changed
 - Replaced "How to play" section with a direct "Leave a review" button on the home screen that opens the app's Google Play Store page for user ratings and feedback.
 - Bumped application version to `versionCode = 7` and `versionName = "0.2.5"` in `app/build.gradle.kts` for Google Play Store upload.
 
 ### Verification & Metrics
-- All 165 unit tests passing with 0 failures (100% pass rate).
-- Whole-app line coverage reached **98.87%** (2,542 / 2,571 lines covered across all 21 source files; every file $\ge 96.0\%$).
+- All 164 unit tests passing with 0 failures (100% pass rate).
+- Whole-app line coverage reached **98.70%** (2,511 / 2,544 lines covered across all 21 source files; every file $\ge 95.4\%$).
 
 
 

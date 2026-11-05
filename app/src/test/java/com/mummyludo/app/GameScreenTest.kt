@@ -181,10 +181,10 @@ class GameScreenTest {
         assertTrue(actions.any { it is NearbyGameAction.Move })
         compose.onNodeWithTag("game_auto_play").performClick()
         assertTrue(autoPlayed)
-        compose.onNodeWithText("Close").performClick()
+        compose.onNodeWithText("Quit").performClick()
         compose.onNodeWithText("Keep playing").performClick()
-        compose.onNodeWithText("Close").performClick()
-        compose.onNodeWithText("Close game").performClick()
+        compose.onNodeWithText("Quit").performClick()
+        compose.onNodeWithText("Quit game").performClick()
         assertTrue(closed)
     }
 
@@ -277,14 +277,13 @@ class GameScreenTest {
                 onState = {},
                 onAutoPlay = {},
                 autoPlayRunning = false,
-                onClose = {},
                 onQuit = { quit = true },
             )
         }
 
         compose.onNodeWithText("Quit").performClick()
-        compose.onNodeWithText("Quit Mummy Ludo?").assertIsDisplayed()
-        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Quit this game?").assertIsDisplayed()
+        compose.onNodeWithText("Keep playing").performClick()
         assertFalse(quit)
 
         compose.onNodeWithText("Quit").performClick()

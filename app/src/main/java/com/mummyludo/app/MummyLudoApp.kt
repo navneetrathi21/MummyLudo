@@ -163,15 +163,10 @@ fun MummyLudoApp(
                     }
                     else -> { action -> nearbyVm.sendClientAction(action) }
                 },
-                onClose = {
-                    nearbyVm.closeAllSessions()
-                    gameVm.clearAndCloseGame()
-                    page = Page.HOME
-                },
                 onQuit = {
                     nearbyVm.closeAllSessions()
                     gameVm.clearAndCloseGame()
-                    onExitApp()
+                    page = Page.HOME
                 },
             )
             Page.NEARBY -> NearbyEntryScreen(

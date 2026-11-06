@@ -291,6 +291,14 @@ class GameScreenTest {
         assertTrue(quit)
     }
 
+    @Test
+    fun diceColorsForMatchesPlayerColorWithHighContrastPips() {
+        assertEquals(Red to androidx.compose.ui.graphics.Color.White, diceColorsFor(LudoColor.RED))
+        assertEquals(Green to androidx.compose.ui.graphics.Color.White, diceColorsFor(LudoColor.GREEN))
+        assertEquals(Blue to androidx.compose.ui.graphics.Color.White, diceColorsFor(LudoColor.BLUE))
+        assertEquals(Yellow to Ink, diceColorsFor(LudoColor.YELLOW))
+    }
+
     private fun render(
         engine: LudoEngine,
         state: () -> GameState,

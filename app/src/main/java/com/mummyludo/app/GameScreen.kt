@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -176,6 +177,7 @@ internal fun GameScreen(
                 },
             )
             if (rolling) {
+                val (dieColor, pipColor) = diceColorsFor(seat.color)
                 Surface(
                     modifier = Modifier
                         .graphicsLayer {
@@ -187,10 +189,11 @@ internal fun GameScreen(
                         .align(Alignment.TopStart)
                         .semantics { contentDescription = "Rolling dice, face $animatedFace" }
                         .testTag("game_dice_overlay"),
-                    color = Color.White,
+                    color = dieColor,
                     shape = RoundedCornerShape(15.dp),
+                    border = BorderStroke(1.dp, if (seat.color == LudoColor.YELLOW) Ink.copy(alpha = .2f) else Color.White.copy(alpha = .35f)),
                     shadowElevation = 10.dp,
-                ) { DiceFace(animatedFace) }
+                ) { DiceFace(animatedFace, pipColor = pipColor) }
             }
             if (state.completed) {
                 ConfettiOverlay(confettiProgress.value)
@@ -222,13 +225,16 @@ internal fun GameScreen(
                                 value = value,
                                 selected = false,
                                 enabled = seat.type == PlayerType.HUMAN && !state.awaitingRoll && state.roll == null && !moving,
+                                playerColor = seat.color,
                                 onClick = {
                                     if (onNearbyAction != null) onNearbyAction(NearbyGameAction.SelectDie(index))
                                     else onState(engine.selectDie(state, index))
                                 },
                             )
                         }
-                        state.roll?.let { value -> SmallDice(value, selected = true, enabled = false, onClick = {}) }
+                        state.roll?.let { value ->
+                            SmallDice(value, selected = true, enabled = false, playerColor = seat.color, onClick = {})
+                        }
                     }
                 } else {
                     Text(if (seat.type == PlayerType.BOT) "Bot is preparing to roll" else "Roll to begin", color = Ink.copy(.58f))
@@ -346,8 +352,21 @@ internal fun confettiPieces(progress: Float, width: Float, height: Float): List<
     }
 }
 
+internal fun diceColorsFor(color: LudoColor): Pair<Color, Color> {
+    val dieColor = colorOf(color)
+    val pipColor = if (color == LudoColor.YELLOW) Ink else Color.White
+    return dieColor to pipColor
+}
+
 @Composable
-private fun SmallDice(value: Int, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun SmallDice(
+    value: Int,
+    selected: Boolean,
+    enabled: Boolean,
+    playerColor: LudoColor = LudoColor.RED,
+    onClick: () -> Unit,
+) {
+    val (dieColor, pipColor) = diceColorsFor(playerColor)
     Surface(
         modifier = Modifier
             .size(52.dp)
@@ -355,10 +374,19 @@ private fun SmallDice(value: Int, selected: Boolean, enabled: Boolean, onClick: 
             .testTag("dice_value_$value")
             .clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        color = if (selected) Sage else Color.White,
-        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, Ink.copy(.14f)),
-        shadowElevation = if (selected) 0.dp else 2.dp,
-    ) { DiceFace(value, if (selected) Color.White else Ink) }
+        color = if (selected) dieColor else dieColor.copy(alpha = .18f),
+        border = if (selected) {
+            BorderStroke(2.5.dp, Ink)
+        } else {
+            BorderStroke(1.dp, dieColor.copy(alpha = .45f))
+        },
+        shadowElevation = if (selected) 4.dp else 1.dp,
+    ) {
+        DiceFace(
+            value = value,
+            pipColor = if (selected) pipColor else if (playerColor == LudoColor.YELLOW) Ink else dieColor,
+        )
+    }
 }
 
 @Composable

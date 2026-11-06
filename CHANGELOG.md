@@ -110,13 +110,18 @@ All notable changes to this project will be recorded here.
   - Tapping "Quit" (or pressing Android system back) shows a confirmation dialog with options to "Quit game" (discards the active match and returns cleanly to the main menu) or "Keep playing".
   - Removed app termination from the in-game flow so users return to the home screen rather than killing the app.
 
+- **Player-Colored Dice with High-Contrast Pips**:
+  - Replaced the generic white dice with custom dice that match the active player's color (Red, Green, Yellow, Blue).
+  - Designed high-contrast pips: crisp white pips for Red, Green, and Blue dice, and dark `Ink` pips for Yellow dice to avoid low-contrast visibility issues.
+  - The banked and selected dice now reflect the active player's color with clean selection highlights and elevation.
+
 ### Changed
 - Replaced "How to play" section with a direct "Leave a review" button on the home screen that opens the app's Google Play Store page for user ratings and feedback.
 - Bumped application version to `versionCode = 8` and `versionName = "0.2.6"` in `app/build.gradle.kts` for Google Play Store upload.
 
 ### Verification & Metrics
-- All 164 unit tests passing with 0 failures (100% pass rate).
-- Whole-app line coverage reached **98.70%** (2,511 / 2,544 lines covered across all 21 source files; every file $\ge 95.4\%$).
+- All 165 unit tests passing with 0 failures (100% pass rate).
+- Whole-app line coverage reached **98.71%** (2,527 / 2,560 lines covered across all 21 source files; every file $\ge 95.4\%$).
 
 
 

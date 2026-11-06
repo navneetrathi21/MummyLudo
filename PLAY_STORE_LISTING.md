@@ -146,6 +146,7 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 ### English (en-US)
 ```
 What's new in version 0.2.6:
+• Dice color now matches each player's token color with high-contrast pips.
 • Fixed room code mismatch when scanning host QR codes in Nearby multiplayer.
 • Improved local network host discovery when joining via 4-digit code.
 • Added an in-game Quit option to exit the active game back to the main menu.

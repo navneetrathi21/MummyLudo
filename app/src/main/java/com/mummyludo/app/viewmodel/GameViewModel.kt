@@ -67,14 +67,12 @@ open class GameViewModel(
 
     fun updateGameState(updated: GameState, isNearby: Boolean = false) {
         game = updated
-        if (!isNearby) {
-            if (updated.completed) {
-                repository.clearActiveGame()
-                hasSavedGame = false
-            } else {
-                repository.saveActiveGame(updated)
-                hasSavedGame = true
-            }
+        if (updated.completed) {
+            repository.clearActiveGame()
+            hasSavedGame = false
+        } else {
+            repository.saveActiveGame(updated)
+            hasSavedGame = true
         }
     }
 

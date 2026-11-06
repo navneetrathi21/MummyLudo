@@ -6,10 +6,10 @@ Last completed measurement: 2026-11-06, using `./gradlew testDebugUnitTest creat
 
 | Area | Source file | Line coverage | Being worked on? | Owner | Remarks |
 | --- | --- | ---: | --- | --- | --- |
-| Overall | All app source | 🟢 98.7% (2,535/2,568) | No | — | 12 of 21 source files at 100.00%; all 21 files $\ge 95.4\%$ |
+| Overall | All app source | 🟢 98.8% (2,555/2,585) | No | — | 12 of 21 source files at 100.00%; all 21 files $\ge 95.4\%$ |
 | Game | `game/LudoEngine.kt` | 🟢 99.6% (261/262) | Done | Codex / Antigravity | Turn loop, bot heuristics, bank orders, captures, arrow traversals, and default parameters pass |
 | Game | `game/DiceRollPath.kt` | 🟢 100.0% (26/26) | Done | Codex | Deterministic roll calculations pass |
-| ViewModels | `viewmodel/GameViewModel.kt` | 🟢 98.4% (62/63) | Done | Antigravity | Active match state, save/restore, auto-play simulation coroutines, and error handling pass |
+| ViewModels | `viewmodel/GameViewModel.kt` | 🟢 98.4% (61/62) | Done | Antigravity | Active match state, save/restore for local and hosted games, auto-play simulation, and error handling pass |
 | ViewModels | `viewmodel/NearbyLobbyViewModel.kt` | 🟢 96.1% (123/128) | Done | Antigravity | Host/guest session management, QR/payload processing, action broadcasting, host profile sync, and lifecycle cleanup pass |
 | Nearby | `nearby/NearbySession.kt` | 🟢 99.0% (102/103) | Done | Codex / Antigravity | 4-digit room code generation, JoinPayloadCodec 4-digit token parsing, readiness color locking pass |
 | Nearby | `nearby/NearbyGameProtocol.kt` | 🟢 100.0% (49/49) | Done | Codex | 96.1% branch coverage; positive and negative protocol tests pass |
@@ -18,10 +18,10 @@ Last completed measurement: 2026-11-06, using `./gradlew testDebugUnitTest creat
 | Nearby UI | `nearby/NearbyScreens.kt` | 🟢 99.6% (269/270) | Done | Codex / Antigravity | Host lobby with interactive color selector, ready toggle, scrollable layout, 4-digit room code QR consistency, location notice, ready locking pass |
 | App UI | `AppTheme.kt` | 🟢 100.0% (17/17) | Done | Codex | Approved palette and themed-content rendering test passes |
 | App UI | `MainActivity.kt` | 🟢 95.5% (147/154) | Done | Codex / Antigravity | Lifecycle, permissions, direct Wi-Fi SSID detection, Play Store listing intent, App Settings launcher pass |
-| App UI | `MummyLudoApp.kt` | 🟢 95.5% (212/222) | Done | Antigravity | In-game Quit match to main menu, host profile propagation to VM, priority-based Wi-Fi detection, location permission propagation, Settings shortcut |
+| App UI | `MummyLudoApp.kt` | 🟢 97.0% (226/233) | Done | Antigravity | Screen-lock survival with rememberSaveable, auto-resume active match, in-game Quit match to main menu, host profile propagation |
 | Welcome UI | `WelcomeScreen.kt` | 🟢 100.0% (67/67) | Done | Antigravity | First-time onboarding screen, logo, interactive name input, validation, continue button |
 | HomeSetupScreens | `HomeSetupScreens.kt` | 🟢 100.0% (110/110) | Done | Codex / Antigravity | Personalized greeting banner, setup limits, reverse duel, continue-game, review / rating, and start-game flows pass |
-| Game UI | `GameScreen.kt` | 🟢 99.1% (325/328) | Done | Codex / Antigravity | Player-turn colored Roll dice button, high-contrast text, classic white dice, unified Quit button, and animations pass |
+| Game UI | `GameScreen.kt` | 🟢 99.1% (332/335) | Done | Codex / Antigravity | Screen awake lock (FLAG_KEEP_SCREEN_ON), player-turn colored Roll dice button, high-contrast text, classic white dice, unified Quit |
 | Game UI | `LudoBoard.kt` | 🟢 100.0% (168/168) | Done | Antigravity | Board canvas, yards, stars, directional arrows, pawn geometry, spreads 1..4, legal highlights, click handlers, and coordinate transforms pass |
 | App UI | `ResultRulesScreens.kt` | 🟢 100.0% (20/20) | Done | Antigravity | Result screen winner and button click tests pass |
 | Storage | `storage/UserPreferences.kt` | 🟢 100.0% (8/8) | Done | Antigravity | SharedPreferences wrapper for player name and first-time welcome completion state |

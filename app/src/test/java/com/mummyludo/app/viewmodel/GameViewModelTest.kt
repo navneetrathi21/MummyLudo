@@ -79,16 +79,18 @@ class GameViewModelTest {
         assertEquals(turn2, repository.savedState)
         assertTrue(vm.hasSavedGame)
 
-        val completed = turn2.copy(completed = true)
-        vm.updateGameState(completed, isNearby = false)
-        assertEquals(completed, vm.game)
-        assertFalse(vm.hasSavedGame)
-        assertFalse(repository.hasActiveGame())
-
-        // In nearby mode, local repository is not touched
+        // In nearby mode, active match is also persisted so hosted matches can resume
         val nearbyGame = game.copy(turn = 3)
         vm.updateGameState(nearbyGame, isNearby = true)
         assertEquals(nearbyGame, vm.game)
+        assertEquals(nearbyGame, repository.savedState)
+        assertTrue(repository.hasActiveGame())
+        assertTrue(vm.hasSavedGame)
+
+        val completed = nearbyGame.copy(completed = true)
+        vm.updateGameState(completed, isNearby = true)
+        assertEquals(completed, vm.game)
+        assertFalse(vm.hasSavedGame)
         assertFalse(repository.hasActiveGame())
     }
 

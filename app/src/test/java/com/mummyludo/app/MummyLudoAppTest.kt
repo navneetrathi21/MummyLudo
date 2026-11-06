@@ -194,6 +194,68 @@ class MummyLudoAppTest {
     }
 
     @Test
+    fun savedGameShowsContinueGameOnHomeAndResumesMatch() {
+        val engine = LudoEngine { 4 }
+        val initialGame = engine.newGame(
+            listOf(
+                Seat(LudoColor.RED, PlayerType.HUMAN, "Host Alice"),
+                Seat(LudoColor.BLUE, PlayerType.BOT, "Bot Bob"),
+            ),
+        )
+        val repo = RecordingRepository(loadResult = initialGame, reportsActive = true)
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedEngine = engine,
+                    providedRepository = repo,
+                )
+            }
+        }
+
+        compose.onNodeWithTag("home_continue_game").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Host Alice · Red").assertIsDisplayed()
+        compose.onNodeWithTag("game_roll_action").assertIsDisplayed()
+    }
+
+    @Test
+    fun restoredGamePageAutoContinuesActiveGame() {
+        val engine = LudoEngine { 4 }
+        val saved = engine.newGame(
+            listOf(
+                Seat(LudoColor.RED, PlayerType.HUMAN, "Restored Host"),
+                Seat(LudoColor.YELLOW, PlayerType.BOT, "Bot"),
+            ),
+        )
+        val repo = RecordingRepository(loadResult = saved, reportsActive = true)
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedEngine = engine,
+                    providedRepository = repo,
+                    initialPage = Page.GAME,
+                )
+            }
+        }
+        compose.onNodeWithText("Restored Host · Red").assertIsDisplayed()
+    }
+
+    @Test
+    fun restoredGamePageRevertsToHomeIfNoSavedGame() {
+        val engine = LudoEngine { 4 }
+        val repo = RecordingRepository(loadResult = null, reportsActive = false)
+        compose.setContent {
+            MummyLudoTheme {
+                MummyLudoApp(
+                    providedEngine = engine,
+                    providedRepository = repo,
+                    initialPage = Page.GAME,
+                )
+            }
+        }
+        compose.onNodeWithText("Mummy Ludo").assertIsDisplayed()
+    }
+
+    @Test
     fun nearbyHostRequestsWifiShowsLobbyAndClosesCleanly() {
         var wifiRequests = 0
         var wifiSettings = 0
@@ -481,6 +543,10 @@ class MummyLudoAppTest {
         compose.onNodeWithTag("home_play_nearby").performClick()
         compose.onNodeWithTag("nearby_host").performClick()
         compose.runOnIdle { backDispatcher.onBackPressed() }
+        compose.onNodeWithText("Play nearby").assertIsDisplayed()
+
+        compose.onNodeWithTag("nearby_join").performClick()
+        compose.onNodeWithText("‹ Back").performClick()
         compose.onNodeWithText("Play nearby").assertIsDisplayed()
 
         compose.onNodeWithTag("nearby_join").performClick()

@@ -8,6 +8,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.mummyludo.app.game.*
@@ -17,7 +18,7 @@ import com.mummyludo.app.viewmodel.*
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
-internal enum class Page { WELCOME, HOME, SETUP, GAME, NEARBY, HOST_LOBBY, JOIN_NEARBY, GUEST_LOBBY }
+enum class Page { WELCOME, HOME, SETUP, GAME, NEARBY, HOST_LOBBY, JOIN_NEARBY, GUEST_LOBBY }
 
 @Composable
 fun MummyLudoApp(
@@ -37,6 +38,7 @@ fun MummyLudoApp(
     onScanGameCode: () -> Unit = {},
     onExitApp: () -> Unit = {},
     onRateFeedback: (() -> Unit)? = null,
+    initialPage: Page? = null,
 ) {
     val context = LocalContext.current
     val handleRateFeedback = onRateFeedback ?: {
@@ -58,11 +60,19 @@ fun MummyLudoApp(
     val nearbyVm = nearbyViewModel ?: remember { NearbyLobbyViewModel(coordinator, appScope) }
 
     var playerName by remember { mutableStateOf(userPrefs.getPlayerName()) }
-    var page by remember { mutableStateOf(if (userPrefs.hasCompletedWelcome()) Page.HOME else Page.WELCOME) }
+    var page by rememberSaveable { mutableStateOf(initialPage ?: if (userPrefs.hasCompletedWelcome()) Page.HOME else Page.WELCOME) }
     var humanCount by remember { mutableIntStateOf(1) }
     var botCount by remember { mutableIntStateOf(1) }
     var reverseDuel by remember { mutableStateOf(false) }
     var lastHomeBackAt by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        if (page == Page.GAME && gameVm.game == null) {
+            if (!gameVm.continueSavedGame()) {
+                page = Page.HOME
+            }
+        }
+    }
 
     LaunchedEffect(page) {
         if (page != Page.HOME) {
@@ -143,32 +153,39 @@ fun MummyLudoApp(
                     page = Page.GAME
                 },
             )
-            Page.GAME -> GameScreen(
-                state = gameVm.game!!,
-                engine = gameVm.engine,
-                onState = { updated ->
-                    gameVm.updateGameState(updated, isNearby = nearbyVm.nearbyLocalColor != null)
-                },
-                onAutoPlay = {
-                    gameVm.triggerAutoPlay(isNearby = nearbyVm.nearbyLocalColor != null)
-                },
-                autoPlayRunning = gameVm.autoPlayRunning,
-                nearbyEvent = nearbyVm.nearbyEvent,
-                localColor = nearbyVm.nearbyLocalColor,
-                onNearbyAction = when {
-                    nearbyVm.nearbyLocalColor == null -> null
-                    nearbyVm.isHost -> { action ->
-                        val activeColor = gameVm.game?.seats?.getOrNull(gameVm.game?.activeSeat ?: -1)?.color
-                        nearbyVm.acceptNearbyAction(gameVm.game, activeColor, action, gameVm.engine)
-                    }
-                    else -> { action -> nearbyVm.sendClientAction(action) }
-                },
-                onQuit = {
-                    nearbyVm.closeAllSessions()
-                    gameVm.clearAndCloseGame()
-                    page = Page.HOME
-                },
-            )
+            Page.GAME -> {
+                val activeGame = gameVm.game
+                if (activeGame != null) {
+                    GameScreen(
+                        state = activeGame,
+                        engine = gameVm.engine,
+                        onState = { updated ->
+                            gameVm.updateGameState(updated, isNearby = nearbyVm.nearbyLocalColor != null)
+                        },
+                        onAutoPlay = {
+                            gameVm.triggerAutoPlay(isNearby = nearbyVm.nearbyLocalColor != null)
+                        },
+                        autoPlayRunning = gameVm.autoPlayRunning,
+                        nearbyEvent = nearbyVm.nearbyEvent,
+                        localColor = nearbyVm.nearbyLocalColor,
+                        onNearbyAction = when {
+                            nearbyVm.nearbyLocalColor == null -> null
+                            nearbyVm.isHost -> { action ->
+                                val activeColor = gameVm.game?.seats?.getOrNull(gameVm.game?.activeSeat ?: -1)?.color
+                                nearbyVm.acceptNearbyAction(gameVm.game, activeColor, action, gameVm.engine)
+                            }
+                            else -> { action -> nearbyVm.sendClientAction(action) }
+                        },
+                        onQuit = {
+                            nearbyVm.closeAllSessions()
+                            gameVm.clearAndCloseGame()
+                            page = Page.HOME
+                        },
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize())
+                }
+            }
             Page.NEARBY -> NearbyEntryScreen(
                 onBack = { page = Page.HOME },
                 onHost = {
@@ -176,7 +193,7 @@ fun MummyLudoApp(
                     val started = nearbyVm.startHosting(
                         initialPlayerName = playerName.ifBlank { "Player 1" },
                         onStarted = { seats ->
-                            gameVm.game = gameVm.engine.newGame(seats.toGameSeats())
+                            gameVm.startNewGame(seats.toGameSeats())
                             page = Page.GAME
                         },
                         onGameAction = { playerColor, action ->
@@ -221,7 +238,7 @@ fun MummyLudoApp(
                         payload = payload,
                         initialName = playerName.ifBlank { "Player" },
                         onStarted = { seats, _ ->
-                            gameVm.game = gameVm.engine.newGame(seats.toGameSeats())
+                            gameVm.startNewGame(seats.toGameSeats())
                             page = Page.GAME
                         },
                     )

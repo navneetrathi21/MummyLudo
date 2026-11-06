@@ -97,7 +97,7 @@ All notable changes to this project will be recorded here.
 - Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB, versionCode 6).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 
-## [0.2.5] - 2026-10-30
+## [0.2.6] - 2026-11-06
 ### Fixed
 - **4-Digit Room Code & QR Code Synchronization**:
   - Fixed room code mismatch where scanning the Host's QR code populated a raw session hex snippet instead of the 4-digit code shown on the host display: `HostLobbyScreen` now explicitly encodes the shared 4-digit `lobby.roomCode` into the QR payload (`JoinPayload`), ensuring scanning and verbal 4-digit sharing match identically.
@@ -112,7 +112,7 @@ All notable changes to this project will be recorded here.
 
 ### Changed
 - Replaced "How to play" section with a direct "Leave a review" button on the home screen that opens the app's Google Play Store page for user ratings and feedback.
-- Bumped application version to `versionCode = 7` and `versionName = "0.2.5"` in `app/build.gradle.kts` for Google Play Store upload.
+- Bumped application version to `versionCode = 8` and `versionName = "0.2.6"` in `app/build.gradle.kts` for Google Play Store upload.
 
 ### Verification & Metrics
 - All 164 unit tests passing with 0 failures (100% pass rate).

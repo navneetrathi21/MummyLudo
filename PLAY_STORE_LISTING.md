@@ -141,11 +141,11 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 
 ---
 
-## 8. Release Notes (What's New in v0.2.5)
+## 8. Release Notes (What's New in v0.2.6)
 
 ### English (en-US)
 ```
-What's new in version 0.2.5:
+What's new in version 0.2.6:
 • Fixed room code mismatch when scanning host QR codes in Nearby multiplayer.
 • Improved local network host discovery when joining via 4-digit code.
 • Added an in-game Quit option to exit the active game back to the main menu.

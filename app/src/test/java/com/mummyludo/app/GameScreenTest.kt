@@ -292,11 +292,16 @@ class GameScreenTest {
     }
 
     @Test
-    fun diceColorsForMatchesPlayerColorWithHighContrastPips() {
+    fun diceAndRollButtonColorsMatchPlayerColorWithHighContrast() {
         assertEquals(Red to androidx.compose.ui.graphics.Color.White, diceColorsFor(LudoColor.RED))
         assertEquals(Green to androidx.compose.ui.graphics.Color.White, diceColorsFor(LudoColor.GREEN))
         assertEquals(Blue to androidx.compose.ui.graphics.Color.White, diceColorsFor(LudoColor.BLUE))
         assertEquals(Yellow to Ink, diceColorsFor(LudoColor.YELLOW))
+
+        assertEquals(Red to androidx.compose.ui.graphics.Color.White, rollButtonColorsFor(LudoColor.RED))
+        assertEquals(Green to androidx.compose.ui.graphics.Color.White, rollButtonColorsFor(LudoColor.GREEN))
+        assertEquals(Blue to androidx.compose.ui.graphics.Color.White, rollButtonColorsFor(LudoColor.BLUE))
+        assertEquals(Yellow to Ink, rollButtonColorsFor(LudoColor.YELLOW))
     }
 
     private fun render(

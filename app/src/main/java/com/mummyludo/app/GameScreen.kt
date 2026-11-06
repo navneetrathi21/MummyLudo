@@ -177,7 +177,6 @@ internal fun GameScreen(
                 },
             )
             if (rolling) {
-                val (dieColor, pipColor) = diceColorsFor(seat.color)
                 Surface(
                     modifier = Modifier
                         .graphicsLayer {
@@ -189,11 +188,11 @@ internal fun GameScreen(
                         .align(Alignment.TopStart)
                         .semantics { contentDescription = "Rolling dice, face $animatedFace" }
                         .testTag("game_dice_overlay"),
-                    color = dieColor,
+                    color = Color.White,
                     shape = RoundedCornerShape(15.dp),
-                    border = BorderStroke(1.dp, if (seat.color == LudoColor.YELLOW) Ink.copy(alpha = .2f) else Color.White.copy(alpha = .35f)),
+                    border = BorderStroke(1.dp, Ink.copy(alpha = .14f)),
                     shadowElevation = 10.dp,
-                ) { DiceFace(animatedFace, pipColor = pipColor) }
+                ) { DiceFace(animatedFace, pipColor = Ink) }
             }
             if (state.completed) {
                 ConfettiOverlay(confettiProgress.value)
@@ -246,6 +245,12 @@ internal fun GameScreen(
                     }
                 }
 
+                val (buttonContainer, buttonContent) = if (state.completed) {
+                    MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
+                } else {
+                    rollButtonColorsFor(seat.color)
+                }
+
                 Button(
                     onClick = {
                         if (state.completed) onClose()
@@ -255,6 +260,12 @@ internal fun GameScreen(
                     enabled = state.completed || (seat.type == PlayerType.HUMAN && (localColor == null || seat.color == localColor) && state.awaitingRoll && !rolling && !moving),
                     modifier = Modifier.fillMaxWidth().height(56.dp).testTag("game_roll_action"),
                     shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = buttonContainer,
+                        contentColor = buttonContent,
+                        disabledContainerColor = buttonContainer.copy(alpha = 0.38f),
+                        disabledContentColor = buttonContent.copy(alpha = 0.65f),
+                    ),
                 ) {
                     Text(
                         when {
@@ -352,11 +363,13 @@ internal fun confettiPieces(progress: Float, width: Float, height: Float): List<
     }
 }
 
-internal fun diceColorsFor(color: LudoColor): Pair<Color, Color> {
-    val dieColor = colorOf(color)
-    val pipColor = if (color == LudoColor.YELLOW) Ink else Color.White
-    return dieColor to pipColor
+internal fun rollButtonColorsFor(color: LudoColor): Pair<Color, Color> {
+    val container = colorOf(color)
+    val content = if (color == LudoColor.YELLOW) Ink else Color.White
+    return container to content
 }
+
+internal fun diceColorsFor(color: LudoColor): Pair<Color, Color> = rollButtonColorsFor(color)
 
 @Composable
 private fun SmallDice(
@@ -366,7 +379,7 @@ private fun SmallDice(
     playerColor: LudoColor = LudoColor.RED,
     onClick: () -> Unit,
 ) {
-    val (dieColor, pipColor) = diceColorsFor(playerColor)
+    val (selectedBg, selectedFg) = rollButtonColorsFor(playerColor)
     Surface(
         modifier = Modifier
             .size(52.dp)
@@ -374,17 +387,13 @@ private fun SmallDice(
             .testTag("dice_value_$value")
             .clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        color = if (selected) dieColor else dieColor.copy(alpha = .18f),
-        border = if (selected) {
-            BorderStroke(2.5.dp, Ink)
-        } else {
-            BorderStroke(1.dp, dieColor.copy(alpha = .45f))
-        },
-        shadowElevation = if (selected) 4.dp else 1.dp,
+        color = if (selected) selectedBg else Color.White,
+        border = if (selected) null else BorderStroke(1.dp, Ink.copy(.14f)),
+        shadowElevation = if (selected) 4.dp else 2.dp,
     ) {
         DiceFace(
             value = value,
-            pipColor = if (selected) pipColor else if (playerColor == LudoColor.YELLOW) Ink else dieColor,
+            pipColor = if (selected) selectedFg else Ink,
         )
     }
 }

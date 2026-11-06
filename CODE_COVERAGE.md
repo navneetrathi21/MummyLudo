@@ -6,7 +6,7 @@ Last completed measurement: 2026-11-06, using `./gradlew testDebugUnitTest creat
 
 | Area | Source file | Line coverage | Being worked on? | Owner | Remarks |
 | --- | --- | ---: | --- | --- | --- |
-| Overall | All app source | 🟢 98.7% (2,527/2,560) | No | — | 12 of 21 source files at 100.00%; all 21 files $\ge 95.4\%$ |
+| Overall | All app source | 🟢 98.7% (2,535/2,568) | No | — | 12 of 21 source files at 100.00%; all 21 files $\ge 95.4\%$ |
 | Game | `game/LudoEngine.kt` | 🟢 99.6% (261/262) | Done | Codex / Antigravity | Turn loop, bot heuristics, bank orders, captures, arrow traversals, and default parameters pass |
 | Game | `game/DiceRollPath.kt` | 🟢 100.0% (26/26) | Done | Codex | Deterministic roll calculations pass |
 | ViewModels | `viewmodel/GameViewModel.kt` | 🟢 98.4% (62/63) | Done | Antigravity | Active match state, save/restore, auto-play simulation coroutines, and error handling pass |
@@ -21,7 +21,7 @@ Last completed measurement: 2026-11-06, using `./gradlew testDebugUnitTest creat
 | App UI | `MummyLudoApp.kt` | 🟢 95.5% (212/222) | Done | Antigravity | In-game Quit match to main menu, host profile propagation to VM, priority-based Wi-Fi detection, location permission propagation, Settings shortcut |
 | Welcome UI | `WelcomeScreen.kt` | 🟢 100.0% (67/67) | Done | Antigravity | First-time onboarding screen, logo, interactive name input, validation, continue button |
 | HomeSetupScreens | `HomeSetupScreens.kt` | 🟢 100.0% (110/110) | Done | Codex / Antigravity | Personalized greeting banner, setup limits, reverse duel, continue-game, review / rating, and start-game flows pass |
-| Game UI | `GameScreen.kt` | 🟢 99.1% (317/320) | Done | Codex / Antigravity | Player-colored dice with high-contrast pips, unified Quit button, match discard confirmation dialog, and animations pass |
+| Game UI | `GameScreen.kt` | 🟢 99.1% (325/328) | Done | Codex / Antigravity | Player-turn colored Roll dice button, high-contrast text, classic white dice, unified Quit button, and animations pass |
 | Game UI | `LudoBoard.kt` | 🟢 100.0% (168/168) | Done | Antigravity | Board canvas, yards, stars, directional arrows, pawn geometry, spreads 1..4, legal highlights, click handlers, and coordinate transforms pass |
 | App UI | `ResultRulesScreens.kt` | 🟢 100.0% (20/20) | Done | Antigravity | Result screen winner and button click tests pass |
 | Storage | `storage/UserPreferences.kt` | 🟢 100.0% (8/8) | Done | Antigravity | SharedPreferences wrapper for player name and first-time welcome completion state |

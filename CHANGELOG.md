@@ -110,10 +110,10 @@ All notable changes to this project will be recorded here.
   - Tapping "Quit" (or pressing Android system back) shows a confirmation dialog with options to "Quit game" (discards the active match and returns cleanly to the main menu) or "Keep playing".
   - Removed app termination from the in-game flow so users return to the home screen rather than killing the app.
 
-- **Player-Colored Dice with High-Contrast Pips**:
-  - Replaced the generic white dice with custom dice that match the active player's color (Red, Green, Yellow, Blue).
-  - Designed high-contrast pips: crisp white pips for Red, Green, and Blue dice, and dark `Ink` pips for Yellow dice to avoid low-contrast visibility issues.
-  - The banked and selected dice now reflect the active player's color with clean selection highlights and elevation.
+- **Active Player-Turn Colored "Roll dice" Action Button**:
+  - Dynamically styled the primary "Roll dice" action button to match the active player's turn color (`#EF5B67` for Red, `#49B675` for Green, `#F6CB3D` for Yellow, and `#438FE7` for Blue), giving players unmistakable visual feedback on whose turn it is.
+  - Implemented high-contrast text styling: crisp white text for Red, Green, and Blue, and deep Ink text (`#26352F`) for Yellow to guarantee accessible readability (exceeding WCAG AAA contrast).
+  - Paired with clean classic white dice with dark ink pips, highlighting chosen dice in the player's turn color when selected.
 
 ### Changed
 - Replaced "How to play" section with a direct "Leave a review" button on the home screen that opens the app's Google Play Store page for user ratings and feedback.
@@ -121,7 +121,7 @@ All notable changes to this project will be recorded here.
 
 ### Verification & Metrics
 - All 165 unit tests passing with 0 failures (100% pass rate).
-- Whole-app line coverage reached **98.71%** (2,527 / 2,560 lines covered across all 21 source files; every file $\ge 95.4\%$).
+- Whole-app line coverage reached **98.71%** (2,535 / 2,568 lines covered across all 21 source files; every file $\ge 95.4\%$).
 
 
 

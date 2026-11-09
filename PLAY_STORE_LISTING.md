@@ -141,16 +141,16 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 
 ---
 
-## 8. Release Notes (What's New in v0.2.6)
+## 8. Release Notes (What's New in v0.2.7)
 
 ### English (en-US)
 ```
-What's new in version 0.2.6:
-• Dice color now matches each player's token color with high-contrast pips.
-• Fixed room code mismatch when scanning host QR codes in Nearby multiplayer.
-• Improved local network host discovery when joining via 4-digit code.
-• Added an in-game Quit option to exit the active game back to the main menu.
-• Added a direct "Leave a review" option on the home screen.
+What's new in version 0.2.7:
+• Roll dice button now dynamically matches the active player's turn color.
+• Screen now stays awake during gameplay to prevent accidental locks.
+• Added match continuation: resume interrupted local or hosted Wi-Fi games from the home screen.
+• Fixed screen-lock restarts so the match remains intact when unlocking your phone.
+• Added an in-game Quit option to exit active matches cleanly to the main menu.
 ```
 
 ---

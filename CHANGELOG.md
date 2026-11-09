@@ -97,6 +97,28 @@ All notable changes to this project will be recorded here.
 - Production release bundle built and verified (`app/build/outputs/bundle/release/app-release.aab`, 7.9 MB, versionCode 6).
 - Debug APK built and verified (`app/build/outputs/apk/debug/app-debug.apk`).
 
+## [0.2.7] - 2026-11-09
+### Added
+- **Active Player-Turn Colored "Roll dice" Action Button**:
+  - Dynamically styled the primary "Roll dice" action button to match the active player's turn color (`#EF5B67` for Red, `#49B675` for Green, `#F6CB3D` for Yellow, and `#438FE7` for Blue), giving players unmistakable visual feedback on whose turn it is.
+  - Implemented high-contrast text styling: crisp white text for Red, Green, and Blue, and deep Ink text (`#26352F`) for Yellow to guarantee accessible readability (exceeding WCAG AAA contrast).
+  - Paired with clean classic white dice with dark ink pips, highlighting chosen dice in the player's turn color when selected.
+
+### Fixed
+- **Screen Lock Survival & Resume Game for Hosted & Local Games**:
+  - Prevented phone sleep and premature lockouts during gameplay by keeping the window awake with `FLAG_KEEP_SCREEN_ON` on the active game screen.
+  - Added `android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"` to `MainActivity` so locking the device or turning the screen on/off does not destroy the activity.
+  - Saved navigation state with `rememberSaveable`, ensuring users remain directly on the active game board when unlocking the phone.
+  - Enabled persistent game saving for hosted and nearby server games: matches are now automatically saved to SQLite on game start and every turn, allowing hosts to resume interrupted matches via "Continue game" on the home screen.
+  - Added null-safe board restoration so returning to an active game seamlessly recovers the exact match state without crashes.
+
+### Changed
+- Bumped application version to `versionCode = 9` and `versionName = "0.2.7"` in `app/build.gradle.kts` for Google Play Store upload.
+
+### Verification & Metrics
+- All 168 unit tests passing with 0 failures (100% pass rate).
+- Whole-app line coverage reached **98.84%** (2,555 / 2,585 lines covered across all 21 source files; every file $\ge 95.4\%$).
+
 ## [0.2.6] - 2026-11-06
 ### Fixed
 - **4-Digit Room Code & QR Code Synchronization**:
@@ -109,18 +131,6 @@ All notable changes to this project will be recorded here.
   - Replaced the dual "Close" and "Quit app" buttons with a single, clear "Quit" button in the active game header.
   - Tapping "Quit" (or pressing Android system back) shows a confirmation dialog with options to "Quit game" (discards the active match and returns cleanly to the main menu) or "Keep playing".
   - Removed app termination from the in-game flow so users return to the home screen rather than killing the app.
-
-- **Active Player-Turn Colored "Roll dice" Action Button**:
-  - Dynamically styled the primary "Roll dice" action button to match the active player's turn color (`#EF5B67` for Red, `#49B675` for Green, `#F6CB3D` for Yellow, and `#438FE7` for Blue), giving players unmistakable visual feedback on whose turn it is.
-  - Implemented high-contrast text styling: crisp white text for Red, Green, and Blue, and deep Ink text (`#26352F`) for Yellow to guarantee accessible readability (exceeding WCAG AAA contrast).
-  - Paired with clean classic white dice with dark ink pips, highlighting chosen dice in the player's turn color when selected.
-
-- **Screen Lock Survival & Resume Game for Hosted & Local Games**:
-  - Prevented phone sleep and premature lockouts during gameplay by keeping the window awake with `FLAG_KEEP_SCREEN_ON` on the active game screen.
-  - Added `android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"` to `MainActivity` so locking the device or turning the screen on/off does not destroy the activity.
-  - Saved navigation state with `rememberSaveable`, ensuring users remain directly on the active game board when unlocking the phone.
-  - Enabled persistent game saving for hosted and nearby server games: matches are now automatically saved to SQLite on game start and every turn, allowing hosts to resume interrupted matches via "Continue game" on the home screen.
-  - Added null-safe board restoration so returning to an active game seamlessly recovers the exact match state without crashes.
 
 ### Changed
 - Replaced "How to play" section with a direct "Leave a review" button on the home screen that opens the app's Google Play Store page for user ratings and feedback.

@@ -220,7 +220,10 @@ fun MummyLudoApp(
                 },
                 onOpenWifiSettings = onOpenWifiSettings,
                 onOpenAppSettings = onOpenAppSettings,
-                onProfile = { name, color, ready -> nearbyVm.updateHostProfile(name, color, ready) },
+                onProfile = { name, color, ready, team -> nearbyVm.updateHostProfile(name, color, ready, team) },
+                onAddBot = { nearbyVm.addBot() },
+                onRemoveBot = { nearbyVm.removeBot(it) },
+                onUpdateBot = { botId, color, team -> nearbyVm.updateBot(botId, color, team) },
                 onStart = { nearbyVm.hostSession?.startGame() },
             )
             Page.JOIN_NEARBY -> JoinNearbyScreen(
@@ -253,14 +256,14 @@ fun MummyLudoApp(
                     nearbyVm.closeGuest()
                     page = Page.NEARBY
                 },
-                onProfile = { name, color, ready -> nearbyVm.updateGuestProfile(name, color, ready) },
+                onProfile = { name, color, ready, team -> nearbyVm.updateGuestProfile(name, color, ready, team) },
             )
         }
     }
 }
 
 internal fun List<NearbyStartedSeat>.toGameSeats(): List<Seat> = map {
-    Seat(it.color, if (it.bot) PlayerType.BOT else PlayerType.HUMAN, it.name)
+    Seat(it.color, if (it.bot) PlayerType.BOT else PlayerType.HUMAN, it.name, team = it.team)
 }
 
 internal fun localWifiAddress(): String? = runCatching {

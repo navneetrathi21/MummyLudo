@@ -446,4 +446,159 @@ class LudoEngineTest {
         )
         assertTrue(captures.isEmpty())
     }
+
+    @Test
+    fun teammatesNeverCaptureEachOtherOnLanding() {
+        val engine = LudoEngine { 2 }
+        val redSeat = Seat(LudoColor.RED, PlayerType.HUMAN, "Red", team = 1)
+        val greenSeat = Seat(LudoColor.GREEN, PlayerType.HUMAN, "Green", team = 1)
+        val yellowSeat = Seat(LudoColor.YELLOW, PlayerType.HUMAN, "Yellow", team = 2)
+        val seats = listOf(redSeat, greenSeat, yellowSeat)
+
+        // Green and Yellow both at progress 10 (from Red's perspective)
+        // Red is at progress 8. Roll is 2.
+        // Destination is progress 10.
+        val greenToken = Token(LudoColor.GREEN, 0, progress = ((10 + 52 - 13) % 52))
+        val yellowToken = Token(LudoColor.YELLOW, 0, progress = ((10 + 52 - 26) % 52))
+
+        val capturesWithGreen = engine.capturedAt(
+            attacker = LudoColor.RED,
+            destination = 10,
+            attackingCount = 1,
+            tokens = listOf(greenToken),
+            pairs = emptySet(),
+            seats = seats,
+        )
+        // Friendly fire protection: Green is on Team 1 with Red, so NOT captured
+        assertTrue(capturesWithGreen.isEmpty())
+
+        val capturesWithYellow = engine.capturedAt(
+            attacker = LudoColor.RED,
+            destination = 10,
+            attackingCount = 1,
+            tokens = listOf(yellowToken),
+            pairs = emptySet(),
+            seats = seats,
+        )
+        // Yellow is on Team 2, so IS captured
+        assertEquals(setOf(yellowToken.id), capturesWithYellow)
+    }
+
+    @Test
+    fun partnerAssistsWithMovementWhenPlayerOwnTokensAreFinished() {
+        val engine = LudoEngine { 3 }
+        val redSeat = Seat(LudoColor.RED, PlayerType.HUMAN, "Red", team = 1)
+        val greenSeat = Seat(LudoColor.GREEN, PlayerType.HUMAN, "Green", team = 1)
+        val yellowSeat = Seat(LudoColor.YELLOW, PlayerType.HUMAN, "Yellow", team = 2)
+
+        val game = engine.newGame(listOf(redSeat, greenSeat, yellowSeat)).copy(
+            tokens = listOf(
+                // All 4 red tokens finished
+                Token(LudoColor.RED, 0, progress = FINISHED),
+                Token(LudoColor.RED, 1, progress = FINISHED),
+                Token(LudoColor.RED, 2, progress = FINISHED),
+                Token(LudoColor.RED, 3, progress = FINISHED),
+                // Green token on track
+                Token(LudoColor.GREEN, 0, progress = 10),
+                Token(LudoColor.GREEN, 1, progress = 0),
+                Token(LudoColor.GREEN, 2, progress = 0),
+                Token(LudoColor.GREEN, 3, progress = 0),
+                // Yellow token on track
+                Token(LudoColor.YELLOW, 0, progress = 5),
+                Token(LudoColor.YELLOW, 1, progress = 0),
+                Token(LudoColor.YELLOW, 2, progress = 0),
+                Token(LudoColor.YELLOW, 3, progress = 0),
+            ),
+            activeSeat = 0, // Red's turn
+            awaitingRoll = false,
+            roll = 3,
+        )
+
+        // Legal moves for Red should include Green's token since all Red tokens are finished
+        val legalMoves = engine.legalMoves(game)
+        assertTrue(legalMoves.isNotEmpty())
+        assertEquals(listOf("G0"), legalMoves.first().tokenIds)
+
+        // Red can move Green's token
+        val result = engine.move(game, legalMoves.first())
+        val movedGreen = result.state.tokens.first { it.id == "G0" }
+        assertEquals(13, movedGreen.progress)
+    }
+
+    @Test
+    fun teamVictoryOccursWhenAllTeamTokensFinish() {
+        val engine = LudoEngine { 1 }
+        val redSeat = Seat(LudoColor.RED, PlayerType.HUMAN, "Red", team = 1)
+        val greenSeat = Seat(LudoColor.GREEN, PlayerType.HUMAN, "Green", team = 1)
+        val yellowSeat = Seat(LudoColor.YELLOW, PlayerType.HUMAN, "Yellow", team = 2)
+
+        val almostWon = engine.newGame(listOf(redSeat, greenSeat, yellowSeat)).copy(
+            tokens = listOf(
+                // All 4 red tokens finished
+                Token(LudoColor.RED, 0, progress = FINISHED),
+                Token(LudoColor.RED, 1, progress = FINISHED),
+                Token(LudoColor.RED, 2, progress = FINISHED),
+                Token(LudoColor.RED, 3, progress = FINISHED),
+                // 3 green tokens finished, 4th at 56 (ready to enter home on roll of 1)
+                Token(LudoColor.GREEN, 0, progress = FINISHED),
+                Token(LudoColor.GREEN, 1, progress = FINISHED),
+                Token(LudoColor.GREEN, 2, progress = FINISHED),
+                Token(LudoColor.GREEN, 3, progress = 56),
+                // Yellow not finished
+                Token(LudoColor.YELLOW, 0, progress = 10),
+                Token(LudoColor.YELLOW, 1, progress = 0),
+                Token(LudoColor.YELLOW, 2, progress = 0),
+                Token(LudoColor.YELLOW, 3, progress = 0),
+            ),
+            activeSeat = 1, // Green's turn
+            awaitingRoll = false,
+            roll = 1,
+        )
+
+        val legalMoves = engine.legalMoves(almostWon)
+        assertTrue(legalMoves.isNotEmpty())
+        val moved = engine.move(almostWon, legalMoves.first()).state
+        val finished = engine.finishMove(moved)
+
+        assertTrue(finished.completed)
+        assertEquals("Team 1 wins!", finished.message)
+        assertTrue(finished.ranking.contains(LudoColor.RED) || finished.ranking.contains(LudoColor.GREEN))
+    }
+
+    @Test
+    fun advanceDoesNotSkipFinishedPlayerWhenPartnerIsStillPlaying() {
+        val engine = LudoEngine { 3 }
+        val redSeat = Seat(LudoColor.RED, PlayerType.HUMAN, "Red", team = 1)
+        val greenSeat = Seat(LudoColor.GREEN, PlayerType.HUMAN, "Green", team = 2)
+        val yellowSeat = Seat(LudoColor.YELLOW, PlayerType.HUMAN, "Yellow", team = 1)
+
+        val game = engine.newGame(listOf(redSeat, greenSeat, yellowSeat)).copy(
+            tokens = listOf(
+                // Red finished
+                Token(LudoColor.RED, 0, progress = FINISHED),
+                Token(LudoColor.RED, 1, progress = FINISHED),
+                Token(LudoColor.RED, 2, progress = FINISHED),
+                Token(LudoColor.RED, 3, progress = FINISHED),
+                // Green active
+                Token(LudoColor.GREEN, 0, progress = 10),
+                Token(LudoColor.GREEN, 1, progress = 0),
+                Token(LudoColor.GREEN, 2, progress = 0),
+                Token(LudoColor.GREEN, 3, progress = 0),
+                // Yellow (Red's partner) active
+                Token(LudoColor.YELLOW, 0, progress = 10),
+                Token(LudoColor.YELLOW, 1, progress = 0),
+                Token(LudoColor.YELLOW, 2, progress = 0),
+                Token(LudoColor.YELLOW, 3, progress = 0),
+            ),
+            activeSeat = 1, // Green's turn
+            awaitingRoll = true,
+        )
+
+        // Advance from Green (seat 1) should go to Yellow (seat 2), then to Red (seat 0) because Yellow is still active!
+        val nextFromGreen = engine.advance(game)
+        assertEquals(2, nextFromGreen.activeSeat) // Yellow's turn
+
+        val nextFromYellow = engine.advance(nextFromGreen)
+        assertEquals(0, nextFromYellow.activeSeat) // Red's turn (not skipped, because partner Yellow is playing)
+    }
 }

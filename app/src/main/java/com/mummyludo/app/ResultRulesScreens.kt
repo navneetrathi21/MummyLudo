@@ -22,7 +22,9 @@ internal fun ResultScreen(state: GameState, onAgain: () -> Unit, onHome: () -> U
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(50.dp))
         Text("Game complete", fontSize = 18.sp, color = Ink.copy(.62f))
-        Text("${state.ranking.first().label} wins!", fontSize = 34.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.testTag("result_winner"))
+        val winnerSeat = state.seats.firstOrNull { it.color == state.ranking.firstOrNull() }
+        val winnerText = if (winnerSeat?.team != null) "Team ${winnerSeat.team} wins!" else "${state.ranking.first().label} wins!"
+        Text(winnerText, fontSize = 34.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.testTag("result_winner"))
         Spacer(Modifier.height(30.dp))
         state.ranking.forEachIndexed { index, color ->
             Card(Modifier.fillMaxWidth().padding(vertical = 5.dp), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {

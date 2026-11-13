@@ -73,6 +73,8 @@ data class NearbyPlayer(
     val color: LudoColor?,
     val ready: Boolean,
     val connection: NearbyConnectionState = NearbyConnectionState.CONNECTED,
+    val team: Int? = null,
+    val isBot: Boolean = false,
 )
 
 data class NearbyLobbyState(
@@ -83,8 +85,10 @@ data class NearbyLobbyState(
     val roomCode: String = sessionId.take(4),
 ) {
     val canStart: Boolean
-        get() = players.size >= 2 && players.all { it.ready && it.color != null } &&
-            players.mapNotNull { it.color }.distinct().size == players.size
+        get() = players.size in 2..4 &&
+            players.all { it.color != null && (it.ready || it.isBot) } &&
+            players.mapNotNull { it.color }.distinct().size == players.size &&
+            players.any { it.isHost }
 }
 
 class NearbyLobbyCoordinator(private val random: SecureRandom = SecureRandom()) {
@@ -102,6 +106,7 @@ class NearbyLobbyCoordinator(private val random: SecureRandom = SecureRandom()) 
                     isHost = true,
                     color = LudoColor.RED,
                     ready = true,
+                    team = null,
                 ),
             ),
             roomCode = code,
@@ -126,22 +131,61 @@ class NearbyLobbyCoordinator(private val random: SecureRandom = SecureRandom()) 
                 isHost = false,
                 color = null,
                 ready = false,
+                team = 1,
             ),
         )
     }
 
+    fun addBot(state: NearbyLobbyState, color: LudoColor? = null, team: Int? = null): NearbyLobbyState {
+        if (state.players.size >= 4) return state
+        val takenColors = state.players.mapNotNull { it.color }.toSet()
+        val botColor = color?.takeIf { it !in takenColors }
+            ?: LudoColor.entries.firstOrNull { it !in takenColors }
+            ?: return state
+        val botCount = state.players.count { it.isBot } + 1
+        val newBot = NearbyPlayer(
+            id = "bot-${state.sessionId}-$botCount",
+            name = "Bot $botCount",
+            isHost = false,
+            color = botColor,
+            ready = true,
+            team = team ?: 2,
+            isBot = true,
+        )
+        return state.copy(players = state.players + newBot)
+    }
+
+    fun removeBot(state: NearbyLobbyState, botId: String): NearbyLobbyState {
+        return state.copy(players = state.players.filterNot { it.id == botId && it.isBot })
+    }
+
+    fun updateBot(state: NearbyLobbyState, botId: String, color: LudoColor?, team: Int?): NearbyLobbyState {
+        val bot = state.players.firstOrNull { it.id == botId && it.isBot } ?: return state
+        val takenColors = state.players.filter { it.id != botId }.mapNotNull { it.color }.toSet()
+        val newColor = if (color != null && color !in takenColors) color else bot.color
+        return state.copy(players = state.players.map {
+            if (it.id == botId) it.copy(color = newColor, team = team) else it
+        })
+    }
+
+    fun updateTeam(state: NearbyLobbyState, playerId: String, team: Int?): NearbyLobbyState {
+        return state.copy(players = state.players.map {
+            if (it.id == playerId) it.copy(team = team) else it
+        })
+    }
+
     fun chooseColor(state: NearbyLobbyState, playerId: String, color: LudoColor): NearbyLobbyState {
         val player = state.players.firstOrNull { it.id == playerId } ?: return state
-        if (player.ready) return state
-        if (color in state.botColors || state.players.any { it.id != playerId && it.color == color }) return state
+        if (player.ready && !player.isBot) return state
+        if (state.players.any { it.id != playerId && it.color == color }) return state
         return state.copy(players = state.players.map {
-            if (it.id == playerId) it.copy(color = color, ready = false) else it
+            if (it.id == playerId) it.copy(color = color, ready = if (it.isBot) true else false) else it
         })
     }
 
     fun setReady(state: NearbyLobbyState, playerId: String, ready: Boolean): NearbyLobbyState =
         state.copy(players = state.players.map {
-            if (it.id == playerId && it.color != null) it.copy(ready = ready) else it
+            if (it.id == playerId && it.color != null && !it.isBot) it.copy(ready = ready) else it
         })
 
     private fun randomHex(bytes: Int): String = ByteArray(bytes)

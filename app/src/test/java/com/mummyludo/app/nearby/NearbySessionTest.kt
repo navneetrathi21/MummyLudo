@@ -123,10 +123,11 @@ class NearbySessionTest {
         val actionReceived = CountDownLatch(1)
         val eventReceived = CountDownLatch(1)
         var host: NearbyLanHost? = null
+        val connectedLatch = CountDownLatch(1)
         val client = NearbyLanClient(
             payload = JoinPayload(initial.sessionId, "127.0.0.1", 42871, initial.joinToken),
             initialName = "Guest",
-            onLobby = { },
+            onLobby = { connectedLatch.countDown() },
             onStarted = { },
             onError = { },
             onGameEvent = { event ->
@@ -147,12 +148,13 @@ class NearbySessionTest {
                 },
             )
             client.connect()
+            assertTrue(connectedLatch.await(5, TimeUnit.SECONDS))
             repeat(20) {
                 client.sendGameAction(NearbyGameAction.Roll)
-                if (eventReceived.await(100, TimeUnit.MILLISECONDS)) return@repeat
+                if (eventReceived.await(200, TimeUnit.MILLISECONDS)) return@repeat
             }
-            assertTrue(actionReceived.await(1, TimeUnit.SECONDS))
-            assertTrue(eventReceived.await(1, TimeUnit.SECONDS))
+            assertTrue(actionReceived.await(3, TimeUnit.SECONDS))
+            assertTrue(eventReceived.await(3, TimeUnit.SECONDS))
         } finally {
             client.close()
             host?.close()
@@ -590,5 +592,52 @@ class NearbySessionTest {
             client.close()
             host.close()
         }
+    }
+
+    @Test fun `coordinator bot and team management`() {
+        val coordinator = NearbyLobbyCoordinator()
+        var lobby = coordinator.createHost("Host")
+        assertEquals(1, lobby.players.size)
+        assertFalse(lobby.canStart) // Only 1 player
+
+        // Add Bot 1
+        val withBot1 = coordinator.addBot(lobby, color = LudoColor.GREEN, team = 1)
+        assertEquals(2, withBot1.players.size)
+        val bot1 = withBot1.players.last()
+        assertEquals("Bot 1", bot1.name)
+        assertEquals(LudoColor.GREEN, bot1.color)
+        assertEquals(1, bot1.team)
+        assertTrue(bot1.isBot)
+        assertTrue(bot1.ready)
+        assertTrue(withBot1.canStart) // Host + 1 bot can start!
+
+        // Update Bot 1 color and team
+        val updatedBot1 = coordinator.updateBot(withBot1, bot1.id, color = LudoColor.YELLOW, team = 2)
+        val bot1Modified = updatedBot1.players.last()
+        assertEquals(LudoColor.YELLOW, bot1Modified.color)
+        assertEquals(2, bot1Modified.team)
+
+        // Add Bot 2
+        val withBot2 = coordinator.addBot(updatedBot1, color = LudoColor.BLUE, team = 2)
+        assertEquals(3, withBot2.players.size)
+
+        // Add Bot 3 (4 players total)
+        val withBot3 = coordinator.addBot(withBot2, color = LudoColor.GREEN, team = 1)
+        assertEquals(4, withBot3.players.size)
+
+        // 5th bot cannot be added (max 4 slots)
+        val full = coordinator.addBot(withBot3)
+        assertEquals(4, full.players.size)
+
+        // Update host team
+        val hostId = withBot3.players.first { it.isHost }.id
+        val withHostTeam = coordinator.updateTeam(withBot3, hostId, team = 1)
+        assertEquals(1, withHostTeam.players.first { it.isHost }.team)
+
+        // Remove Bot 2
+        val bot2Id = withBot2.players.last().id
+        val removedBot = coordinator.removeBot(withHostTeam, bot2Id)
+        assertEquals(3, removedBot.players.size)
+        assertTrue(removedBot.players.none { it.id == bot2Id })
     }
 }

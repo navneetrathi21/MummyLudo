@@ -321,6 +321,93 @@ class NearbyScreensTest {
         compose.onNodeWithText("Ask players to scan QR or enter 4-digit code").assertIsDisplayed()
     }
 
+    @Test
+    fun hostLobbySlotControlsAllowAddingRemovingAndConfiguringBotsAndTeams() {
+        var botAdded = false
+        var removedBotId: String? = null
+        var updatedBotId: String? = null
+        var updatedBotColor: LudoColor? = null
+        var updatedBotTeam: Int? = null
+        var hostTeamSelected: Int? = null
+
+        val botPlayer = NearbyPlayer("bot-1", "Bot 1", isHost = false, color = LudoColor.GREEN, ready = true, team = 2, isBot = true)
+        val lobbyWithBot = lobby(
+            NearbyPlayer("host", "Host", isHost = true, color = LudoColor.RED, ready = false, team = 1),
+            botPlayer,
+        )
+
+        compose.setContent {
+            HostLobbyScreen(
+                lobby = lobbyWithBot,
+                hostAddress = "192.168.1.10",
+                wifiName = "Home-Wifi",
+                onBack = {},
+                onOpenWifiSettings = {},
+                onProfile = { _, _, _, team -> hostTeamSelected = team },
+                onAddBot = { botAdded = true },
+                onRemoveBot = { removedBotId = it },
+                onUpdateBot = { id, color, team ->
+                    updatedBotId = id
+                    updatedBotColor = color
+                    updatedBotTeam = team
+                },
+                onStart = {},
+            )
+        }
+
+        // Open slots are shown
+        compose.onNodeWithText("Slot 3 · Open").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("add_bot_slot_3").performScrollTo().performClick()
+        assertTrue(botAdded)
+
+        // Bot slot controls
+        compose.onNodeWithText("🤖 Bot 1").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("remove_bot_bot-1").performScrollTo().performClick()
+        assertEquals("bot-1", removedBotId)
+
+        // Bot team selection
+        compose.onNodeWithTag("bot_bot-1_team_1").performScrollTo().performClick()
+        assertEquals("bot-1", updatedBotId)
+        assertEquals(1, updatedBotTeam)
+
+        // Bot color selection
+        compose.onNodeWithTag("bot_bot-1_color_yellow").performScrollTo().performClick()
+        assertEquals("bot-1", updatedBotId)
+        assertEquals(LudoColor.YELLOW, updatedBotColor)
+
+        // Host team selection
+        compose.onNodeWithTag("host_team_none").performScrollTo().performClick()
+        assertEquals(null, hostTeamSelected)
+
+        // Match summary card
+        compose.onNodeWithTag("match_summary_card").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Team 1 vs Team 2").assertIsDisplayed()
+    }
+
+    @Test
+    fun teamHelpersFormatProperly() {
+        assertEquals("Individual (Free-For-All)", describeMatchTeams(listOf(
+            NearbyPlayer("1", "P1", isHost = true, color = LudoColor.RED, ready = true, team = null),
+            NearbyPlayer("2", "P2", isHost = false, color = LudoColor.BLUE, ready = true, team = null),
+        )))
+
+        assertEquals("Team 1 vs Solo", describeMatchTeams(listOf(
+            NearbyPlayer("1", "P1", isHost = true, color = LudoColor.RED, ready = true, team = 1),
+            NearbyPlayer("2", "P2", isHost = false, color = LudoColor.BLUE, ready = true, team = null),
+        )))
+
+        assertEquals("Team 1 vs Team 2", describeMatchTeams(listOf(
+            NearbyPlayer("1", "P1", isHost = true, color = LudoColor.RED, ready = true, team = 1),
+            NearbyPlayer("2", "P2", isHost = false, color = LudoColor.BLUE, ready = true, team = 2),
+        )))
+
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF2563EB), teamColor(1))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFFEA580C), teamColor(2))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF7C3AED), teamColor(3))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF0D9488), teamColor(4))
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF6B7280), teamColor(null))
+    }
+
     private fun lobby(vararg players: NearbyPlayer) = NearbyLobbyState(
         sessionId = "session-123",
         joinToken = "join-token-123",

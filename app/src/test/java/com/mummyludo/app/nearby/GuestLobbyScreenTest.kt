@@ -101,4 +101,31 @@ class GuestLobbyScreenTest {
         compose.onNodeWithTag("guest_ready").assertIsEnabled().performClick()
         assertEquals(Triple("Guest", LudoColor.GREEN, false), profiles.single())
     }
+
+    @Test
+    fun guestCanSelectTeamAndSeesBotAndHostBadges() {
+        var selectedTeam: Int? = -1
+        val lobbyWithBot = lobby.copy(players = listOf(
+            NearbyPlayer("host", "Host", isHost = true, color = LudoColor.RED, ready = true, team = 1),
+            NearbyPlayer("guest", "Guest", isHost = false, color = LudoColor.GREEN, ready = false, team = null),
+            NearbyPlayer("bot-1", "Bot 1", isHost = false, color = LudoColor.YELLOW, ready = true, team = 2, isBot = true),
+        ))
+        compose.setContent {
+            GuestLobbyScreen(
+                lobby = lobbyWithBot,
+                playerId = "guest",
+                onBack = {},
+                onProfile = { _, _, _, team -> selectedTeam = team },
+            )
+        }
+
+        compose.onNodeWithText("HOST").assertIsDisplayed()
+        compose.onNodeWithText("BOT").assertIsDisplayed()
+        compose.onNodeWithText("YOU").assertIsDisplayed()
+        compose.onNodeWithText("Slot 4 · Open").assertIsDisplayed()
+
+        // Guest selects team 1
+        compose.onNodeWithTag("guest_team_1").performClick()
+        assertEquals(1, selectedTeam)
+    }
 }

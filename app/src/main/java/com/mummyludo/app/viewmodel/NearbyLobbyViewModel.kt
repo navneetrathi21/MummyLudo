@@ -119,37 +119,76 @@ open class NearbyLobbyViewModel(
         client.connect()
     }
 
-    fun updateGuestProfile(name: String, color: LudoColor?, ready: Boolean) {
+    fun updateGuestProfile(name: String, color: LudoColor?, ready: Boolean, team: Int? = null) {
         val current = guestLobby?.players?.firstOrNull { it.id == clientSession?.playerId }
-        if (current != null && current.ready && ready && (current.color != color || current.name != name)) {
+        if (current != null && current.ready && ready && (current.color != color || current.name != name || current.team != team)) {
             return
         }
-        clientSession?.updateProfile(name, color, ready)
+        clientSession?.updateProfile(name, color, ready, team)
     }
 
-    fun updateHostProfile(name: String, color: LudoColor?, ready: Boolean) {
+    fun updateHostProfile(name: String, color: LudoColor?, ready: Boolean, team: Int? = null) {
         val currentHost = hostLobby?.players?.find { it.isHost }
-        if (currentHost != null && currentHost.ready && ready && (currentHost.color != color || currentHost.name != name)) {
+        if (currentHost != null && currentHost.ready && ready && (currentHost.color != color || currentHost.name != name || currentHost.team != team)) {
             return
         }
         if (color != null && (!ready || currentHost == null || !currentHost.ready)) {
             nearbyLocalColor = color
         }
-        hostSession?.updateProfile(name, color, ready)
+        hostSession?.updateProfile(name, color, ready, team)
         hostLobby?.let { current ->
             val hostPlayer = current.players.find { it.isHost } ?: return@let
-            if (hostPlayer.ready && ready && (hostPlayer.color != color || hostPlayer.name != name)) {
+            if (hostPlayer.ready && ready && (hostPlayer.color != color || hostPlayer.name != name || hostPlayer.team != team)) {
                 return@let
             }
             hostLobby = current.copy(
                 players = current.players.map {
                     if (it.id == hostPlayer.id) {
-                        if (hostPlayer.ready && !ready) it.copy(name = name, color = color, ready = false)
-                        else if (!hostPlayer.ready) it.copy(name = name, color = color, ready = ready)
+                        if (hostPlayer.ready && !ready) it.copy(name = name, color = color, ready = false, team = team)
+                        else if (!hostPlayer.ready) it.copy(name = name, color = color, ready = ready, team = team)
                         else it
                     } else it
                 },
             )
+        }
+    }
+
+    fun addBot(color: LudoColor? = null, team: Int? = null) {
+        val session = hostSession
+        if (session != null) {
+            session.addBot(color, team)
+            return
+        }
+        val current = hostLobby ?: return
+        val updated = coordinator.addBot(current, color, team)
+        if (updated != current) {
+            hostLobby = updated
+        }
+    }
+
+    fun removeBot(botId: String) {
+        val session = hostSession
+        if (session != null) {
+            session.removeBot(botId)
+            return
+        }
+        val current = hostLobby ?: return
+        val updated = coordinator.removeBot(current, botId)
+        if (updated != current) {
+            hostLobby = updated
+        }
+    }
+
+    fun updateBot(botId: String, color: LudoColor?, team: Int?) {
+        val session = hostSession
+        if (session != null) {
+            session.updateBot(botId, color, team)
+            return
+        }
+        val current = hostLobby ?: return
+        val updated = coordinator.updateBot(current, botId, color, team)
+        if (updated != current) {
+            hostLobby = updated
         }
     }
 

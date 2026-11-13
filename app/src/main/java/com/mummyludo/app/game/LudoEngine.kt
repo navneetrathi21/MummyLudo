@@ -5,9 +5,16 @@ import kotlin.random.Random
 enum class LudoColor(val label: String) { RED("Red"), GREEN("Green"), YELLOW("Yellow"), BLUE("Blue") }
 enum class PlayerType { HUMAN, BOT }
 
-data class Seat(val color: LudoColor, val type: PlayerType, val name: String)
+data class Seat(val color: LudoColor, val type: PlayerType, val name: String, val team: Int? = null)
 data class Token(val color: LudoColor, val index: Int, val progress: Int = YARD) {
     val id: String get() = "${color.name.first()}$index"
+}
+
+fun isTeammate(color1: LudoColor, color2: LudoColor, seats: List<Seat>): Boolean {
+    if (color1 == color2) return false
+    val s1 = seats.firstOrNull { it.color == color1 } ?: return false
+    val s2 = seats.firstOrNull { it.color == color2 } ?: return false
+    return s1.team != null && s1.team == s2.team
 }
 data class UnitMove(
     val tokenIds: List<String>,
@@ -116,19 +123,27 @@ open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
 
     fun legalMoves(state: GameState): List<UnitMove> {
         val die = state.roll ?: return emptyList()
-        val color = state.seats[state.activeSeat].color
-        val own = state.tokens.filter { it.color == color && it.progress != FINISHED }
+        val activeSeat = state.seats[state.activeSeat]
+        val own = state.tokens.filter { it.color == activeSeat.color && it.progress != FINISHED }
+        val targetColor = if (own.isEmpty() && activeSeat.team != null) {
+            state.seats.firstOrNull {
+                it.team == activeSeat.team && state.tokens.any { t -> t.color == it.color && t.progress != FINISHED }
+            }?.color ?: activeSeat.color
+        } else {
+            activeSeat.color
+        }
+        val targetTokens = state.tokens.filter { it.color == targetColor && it.progress != FINISHED }
         val explicitPairs = state.pairs.map { it.split(":").toSet() }
         val pairedIds = explicitPairs.flatten().toSet()
         val units = mutableListOf<List<Token>>()
         explicitPairs.forEach { ids ->
-            val pair = own.filter { it.id in ids }
+            val pair = targetTokens.filter { it.id in ids }
             if (pair.size == 2 && pair.map { it.progress }.distinct().size == 1) units += pair
         }
-        own.filter { it.id !in pairedIds }.forEach { units += listOf(it) }
+        targetTokens.filter { it.id !in pairedIds }.forEach { units += listOf(it) }
 
         // Any two unpaired same-color tokens sharing a square may be selected together.
-        own.filter { it.id !in pairedIds && it.progress >= 0 }
+        targetTokens.filter { it.id !in pairedIds && it.progress >= 0 }
             .groupBy { it.progress }
             .values
             .forEach { group ->
@@ -168,7 +183,7 @@ open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         }
 
         val capturedIds = if (destination in 0..51 && !isProtected(color, destination)) {
-            capturedAt(color, destination, move.tokenIds.size, movedTokens, pairs)
+            capturedAt(color, destination, move.tokenIds.size, movedTokens, pairs, state.seats)
         } else emptySet()
         val afterCapture = movedTokens.map { token ->
             if (token.id in capturedIds) token.copy(progress = YARD) else token
@@ -252,10 +267,11 @@ open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         attackingCount: Int,
         tokens: List<Token>,
         pairs: Set<String>,
+        seats: List<Seat> = emptyList(),
     ): Set<String> {
         val targetGlobal = globalTrack(attacker, destination)
         val opponents = tokens.filter {
-            it.color != attacker && it.progress in 0..51 && globalTrack(it.color, it.progress) == targetGlobal
+            it.color != attacker && !isTeammate(attacker, it.color, seats) && it.progress in 0..51 && globalTrack(it.color, it.progress) == targetGlobal
         }
         if (opponents.isEmpty()) return emptySet()
         val pairSets = pairs.map { it.split(":").toSet() }
@@ -282,14 +298,32 @@ open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
                 ranking = ranking + seat.color
             }
         }
+        val hasTeams = state.seats.mapNotNull { it.team }.groupBy { it }.any { it.value.size >= 2 }
+        if (hasTeams) {
+            val winningTeam = state.seats.mapNotNull { it.team }.distinct().firstOrNull { teamId ->
+                val teamSeats = state.seats.filter { it.team == teamId }
+                teamSeats.isNotEmpty() && teamSeats.all { it.color in ranking }
+            }
+            if (winningTeam != null) {
+                return state.copy(ranking = ranking, completed = true)
+            }
+        }
         if (ranking.size == state.seats.size - 1) {
             ranking = ranking + state.seats.map(Seat::color).first { it !in ranking }
         }
         return state.copy(ranking = ranking, completed = ranking.size == state.seats.size)
     }
 
-    private fun finishMove(state: GameState): GameState {
-        if (state.completed) return state.copy(roll = null, diceBank = emptyList(), message = "${state.ranking.first().label} wins!")
+    internal fun finishMove(state: GameState): GameState {
+        if (state.completed) {
+            val winnerSeat = state.seats.firstOrNull { it.color == state.ranking.firstOrNull() }
+            val winMsg = if (winnerSeat?.team != null && state.seats.count { it.team == winnerSeat.team } >= 2) {
+                "Team ${winnerSeat.team} wins!"
+            } else {
+                "${state.ranking.first().label} wins!"
+            }
+            return state.copy(roll = null, diceBank = emptyList(), message = winMsg)
+        }
         // Arrow/capture credits are rolled into the bank immediately so the
         // player can make one collective decision with every available value.
         if (state.pendingBonus > 0) return state.copy(
@@ -306,10 +340,16 @@ open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         return advance(state.copy(roll = null, awaitingRoll = false))
     }
 
-    private fun advance(state: GameState): GameState {
+    internal fun advance(state: GameState): GameState {
         var next = state.activeSeat
-        do next = (next + 1) % state.seats.size
-        while (state.seats[next].color in state.ranking)
+        do {
+            next = (next + 1) % state.seats.size
+            val seat = state.seats[next]
+            val hasUnfinishedTeammate = seat.team?.let { teamId ->
+                state.seats.any { it.team == teamId && it.color !in state.ranking }
+            } ?: false
+            if (seat.color !in state.ranking || hasUnfinishedTeammate) break
+        } while (true)
         return state.copy(
             activeSeat = next,
             turn = state.turn + 1,

@@ -49,6 +49,17 @@ class NearbyLobbyViewModelTest {
             assertEquals("Host New", hostPlayer?.name)
             assertEquals(LudoColor.BLUE, hostPlayer?.color)
             assertFalse(hostPlayer?.ready ?: true)
+
+            // Exercise bot operations with active hostSession
+            vm.addBot(LudoColor.GREEN, 1)
+            val botId = vm.hostLobby?.players?.firstOrNull { it.isBot }?.id ?: "bot-1"
+            vm.updateBot(botId, LudoColor.YELLOW, 2)
+            vm.removeBot(botId)
+
+            // Attempting to change profile while ready is ignored
+            vm.updateHostProfile("Host New", LudoColor.BLUE, true)
+            vm.updateHostProfile("Attempt Change", LudoColor.YELLOW, true)
+            assertEquals("Host New", vm.hostLobby?.players?.first { it.isHost }?.name)
         } finally {
             vm.closeHost()
         }
@@ -132,10 +143,48 @@ class NearbyLobbyViewModelTest {
             val payload = JoinPayload("session-test", "127.0.0.1", 49152, "token")
             vm.startJoining(payload = payload, onStarted = { _, _ -> })
             assertNotNull(vm.clientSession)
-            vm.updateGuestProfile("Guest", LudoColor.BLUE, true)
+            val clientId = vm.clientSession?.playerId.orEmpty()
+            vm.guestLobby = NearbyLobbyState("s", "t", listOf(NearbyPlayer(clientId, "Guest", false, LudoColor.BLUE, true)))
+            vm.updateGuestProfile("Different", LudoColor.RED, true)
             vm.sendClientAction(NearbyGameAction.Roll)
         } finally {
             vm.closeAllSessions()
         }
+    }
+
+    @Test
+    fun botAndTeamViewModelOperationsWorkWithoutSessionAndWithSession() {
+        val vm = NearbyLobbyViewModel(coordinator, testScope)
+        val initialLobby = coordinator.createHost("Host")
+        vm.hostLobby = initialLobby
+
+        // Without active session (direct lobby manipulation)
+        val bot = vm.addBot(color = LudoColor.GREEN, team = 1)
+        assertNotNull(vm.hostLobby)
+        assertEquals(2, vm.hostLobby?.players?.size)
+        val addedBot = vm.hostLobby?.players?.last()
+        assertEquals(LudoColor.GREEN, addedBot?.color)
+        assertEquals(1, addedBot?.team)
+
+        // Update bot
+        val botId = addedBot?.id.orEmpty()
+        vm.updateBot(botId, LudoColor.YELLOW, 2)
+        val modifiedBot = vm.hostLobby?.players?.last()
+        assertEquals(LudoColor.YELLOW, modifiedBot?.color)
+        assertEquals(2, modifiedBot?.team)
+
+        // Update host team
+        vm.updateHostProfile("Host", LudoColor.RED, false, team = 2)
+        assertEquals(2, vm.hostLobby?.players?.first { it.isHost }?.team)
+
+        // Remove bot
+        vm.removeBot(botId)
+        assertEquals(1, vm.hostLobby?.players?.size)
+
+        // Edge case: null hostLobby
+        vm.hostLobby = null
+        vm.addBot()
+        vm.removeBot("nonexistent")
+        vm.updateBot("nonexistent", null, null)
     }
 }

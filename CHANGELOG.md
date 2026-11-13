@@ -2,6 +2,25 @@
 
 All notable changes to this project will be recorded here.
 
+## [Unreleased — AOE2-Style Lobby with Bots & Teams] - 2026-11-13
+- **AOE2-Style 4-Slot Lobby**:
+  - Revamped host and guest lobbies into an Age of Empires II style 4-slot layout with dedicated cards for Host, Guests, Bots, and Open slots.
+  - Added "+ Add Bot" controls on open slots allowing host to populate slots with AI bots up to the 4-slot limit.
+  - Added bot color selector and team chips (`None`, `T1`, `T2`, `T3`, `T4`) and "✕ Remove" button for bots.
+  - Added team selection chips for Host and Guests (`None`, `T1`, `T2`, `T3`, `T4`) enabling Free-For-All (FFA), 2v2, 3v1, or 2v1v1 formats.
+  - Added dynamic Match Setup summary card (e.g. `Individual (Free-For-All)`, `Team 1 vs Team 2`, `Team 1 vs Solo`) without verbose teammate text.
+- **Game Engine & Rules**:
+  - Implemented friendly-fire immunity: landing on a teammate's tile does not capture their token.
+  - Partner assist movement: when a player has finished all 4 of their tokens, their turn rolls assist their teammate's active tokens.
+  - Team victory condition: match ends with a team victory banner (`Team X wins!`) when all tokens of a team reach home.
+  - Turn advancement: finished players whose teammates are still in play are not skipped and roll to assist.
+- **Networking & Persistence**:
+  - Serialized `seat.team` and `isBot` across `PROFILE`, `START`, and `LOBBY` LAN packet protocols.
+  - Updated `GameStateCodec` JSON serialization to preserve `seat.team` across match save and restore.
+- **Testing & Quality Assurance**:
+  - 177 unit and compose UI tests passing across Robolectric and JVM test suites.
+  - Maintained $\ge 95\%$ line coverage across all 21 source files (Codebase total: **98.89%** line coverage).
+
 ## [Initial Assessment] - 2024-10-23
 - **Action**: Performed comprehensive codebase exploration.
 - **Summary**: 

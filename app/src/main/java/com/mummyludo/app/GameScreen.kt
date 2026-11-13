@@ -160,7 +160,11 @@ internal fun GameScreen(
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 14.dp, vertical = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text("${seat.name} · ${seat.color.label}", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (seat.team != null) "${seat.name} · ${seat.color.label} (Team ${seat.team})" else "${seat.name} · ${seat.color.label}",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
                 Text("Turn ${state.turn} · ${state.message}", color = Ink.copy(.62f), fontSize = 13.sp)
             }
             TextButton(
@@ -226,7 +230,9 @@ internal fun GameScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (state.completed) {
-                    Text("${state.ranking.first().label} wins!", fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = colorOf(state.ranking.first()))
+                    val winnerSeat = state.seats.firstOrNull { it.color == state.ranking.firstOrNull() }
+                    val winText = if (winnerSeat?.team != null) "Team ${winnerSeat.team} wins!" else "${state.ranking.first().label} wins!"
+                    Text(winText, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = colorOf(state.ranking.first()))
                 } else if (state.diceBank.isNotEmpty() || state.roll != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         state.diceBank.forEachIndexed { index, value ->

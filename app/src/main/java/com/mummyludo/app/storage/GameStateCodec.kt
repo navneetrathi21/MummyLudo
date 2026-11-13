@@ -14,6 +14,7 @@ object GameStateCodec {
                 put("color", seat.color.name)
                 put("type", seat.type.name)
                 put("name", seat.name)
+                if (seat.team != null) put("team", seat.team)
             }
             seatsArray.put(seatObj)
         }
@@ -70,7 +71,8 @@ object GameStateCodec {
             val color = LudoColor.valueOf(obj.getString("color"))
             val type = PlayerType.valueOf(obj.getString("type"))
             val name = obj.getString("name")
-            seats.add(Seat(color, type, name))
+            val team = if (obj.has("team") && !obj.isNull("team")) obj.getInt("team") else null
+            seats.add(Seat(color, type, name, team))
         }
         require(seats.size in 2..4)
 

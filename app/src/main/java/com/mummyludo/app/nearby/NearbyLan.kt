@@ -20,7 +20,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 
-data class NearbyStartedSeat(val color: LudoColor, val name: String, val bot: Boolean = false)
+data class NearbyStartedSeat(
+    val color: LudoColor,
+    val name: String,
+    val bot: Boolean = false,
+    val team: Int? = null,
+)
 
 class NearbyLanHost(
     initialLobby: NearbyLobbyState,
@@ -87,21 +92,23 @@ class NearbyLanHost(
                     try {
                         while (running) {
                             val parts = reader.readLine()?.split('|') ?: break
-                            if (parts.size == 5 && parts[0] == "PROFILE" && decode(parts[1]) == playerId) {
+                            if (parts.size >= 5 && parts[0] == "PROFILE" && decode(parts[1]) == playerId) {
                                 val name = decode(parts[2]).trim().take(24).ifBlank { "Player" }
                                 val color = parts[3].takeUnless { value -> value == "-" }?.let(LudoColor::valueOf)
                                 val ready = parts[4].toBooleanStrictOrNull() ?: false
+                                val team = if (parts.size >= 6) parts[5].toIntOrNull()?.takeIf { it in 1..4 } else null
                                 synchronized(this@NearbyLanHost) {
                                     val player = lobby.players.firstOrNull { it.id == playerId }
                                     if (player != null) {
                                         if (player.ready && ready) {
-                                            // Player is already ready and remains ready: ignore changes to name or color
+                                            // Player is already ready and remains ready: ignore changes to name, color, team
                                         } else {
                                             if (player.ready && !ready) {
                                                 lobby = coordinator.setReady(lobby, playerId, false)
                                             }
                                             lobby = rename(lobby, playerId, name)
                                             if (color != null) lobby = coordinator.chooseColor(lobby, playerId, color)
+                                            lobby = coordinator.updateTeam(lobby, playerId, team)
                                             lobby = coordinator.setReady(lobby, playerId, ready)
                                             publishLobby()
                                         }
@@ -129,11 +136,9 @@ class NearbyLanHost(
 
     @Synchronized
     fun startGame(): Boolean {
-        // Only allow starting when the lobby is ready *and* at least one client has joined.
-        // This prevents a host‑only game from incorrectly transitioning to playing state.
-        if (!lobby.canStart || clients.isEmpty()) return false
+        if (!lobby.canStart || lobby.players.none { !it.isHost }) return false
         val seats = lobby.players.mapNotNull { player ->
-            player.color?.let { NearbyStartedSeat(it, player.name) }
+            player.color?.let { NearbyStartedSeat(it, player.name, bot = player.isBot, team = player.team) }
         }.sortedBy { it.color.ordinal }
         val message = "START|${encodeSeats(seats)}"
         broadcastAsync(message)
@@ -147,13 +152,13 @@ class NearbyLanHost(
     }
 
     /**
-     * Update the host's own profile.  Clients normally send a PROFILE message to the
+     * Update the host's own profile. Clients normally send a PROFILE message to the
      * server; in the host case we need to mutate the lobby directly.
      */
     @Synchronized
-    fun updateProfile(name: String, color: LudoColor?, ready: Boolean) {
+    fun updateProfile(name: String, color: LudoColor?, ready: Boolean, team: Int? = null) {
         val hostPlayer = lobby.players.find { it.isHost } ?: return
-        if (hostPlayer.ready && ready) {
+        if (hostPlayer.ready && ready && (hostPlayer.color != color || hostPlayer.name != name || hostPlayer.team != team)) {
             return
         }
         if (hostPlayer.ready && !ready) {
@@ -161,7 +166,26 @@ class NearbyLanHost(
         }
         lobby = rename(lobby, hostPlayer.id, name)
         if (color != null) lobby = coordinator.chooseColor(lobby, hostPlayer.id, color)
+        lobby = coordinator.updateTeam(lobby, hostPlayer.id, team)
         lobby = coordinator.setReady(lobby, hostPlayer.id, ready)
+        publishLobby()
+    }
+
+    @Synchronized
+    fun addBot(color: LudoColor? = null, team: Int? = null) {
+        lobby = coordinator.addBot(lobby, color, team)
+        publishLobby()
+    }
+
+    @Synchronized
+    fun removeBot(botId: String) {
+        lobby = coordinator.removeBot(lobby, botId)
+        publishLobby()
+    }
+
+    @Synchronized
+    fun updateBot(botId: String, color: LudoColor?, team: Int?) {
+        lobby = coordinator.updateBot(lobby, botId, color, team)
         publishLobby()
     }
 
@@ -235,8 +259,8 @@ class NearbyLanClient(
         }
     }
 
-    fun updateProfile(name: String, color: LudoColor?, ready: Boolean) {
-        val message = "PROFILE|${encode(playerId)}|${encode(name.take(24))}|${color?.name ?: "-"}|$ready"
+    fun updateProfile(name: String, color: LudoColor?, ready: Boolean, team: Int? = null) {
+        val message = "PROFILE|${encode(playerId)}|${encode(name.take(24))}|${color?.name ?: "-"}|$ready|${team ?: 0}"
         sendAsync(message)
     }
 
@@ -279,7 +303,15 @@ private fun rename(state: NearbyLobbyState, playerId: String, name: String): Nea
 }
 
 private fun encodeLobby(state: NearbyLobbyState): String = state.players.joinToString(";") { player ->
-    listOf(encode(player.id), encode(player.name), player.isHost, player.color?.name ?: "-", player.ready).joinToString(",")
+    listOf(
+        encode(player.id),
+        encode(player.name),
+        player.isHost,
+        player.color?.name ?: "-",
+        player.ready,
+        player.team ?: 0,
+        player.isBot,
+    ).joinToString(",")
 }
 
 private fun decodeLobby(payload: JoinPayload, raw: String): NearbyLobbyState = NearbyLobbyState(
@@ -293,17 +325,24 @@ private fun decodeLobby(payload: JoinPayload, raw: String): NearbyLobbyState = N
             isHost = fields[2].toBoolean(),
             color = fields[3].takeUnless { it == "-" }?.let(LudoColor::valueOf),
             ready = fields[4].toBoolean(),
+            team = if (fields.size > 5) fields[5].toIntOrNull()?.takeIf { it in 1..4 } else null,
+            isBot = if (fields.size > 6) fields[6].toBoolean() else false,
         )
     },
 )
 
 private fun encodeSeats(seats: List<NearbyStartedSeat>): String = seats.joinToString(";") {
-    "${it.color.name},${encode(it.name)},${it.bot}"
+    "${it.color.name},${encode(it.name)},${it.bot},${it.team ?: 0}"
 }
 
 private fun decodeSeats(raw: String): List<NearbyStartedSeat> = raw.split(';').filter { it.isNotBlank() }.map { record ->
     val fields = record.split(',')
-    NearbyStartedSeat(LudoColor.valueOf(fields[0]), decode(fields[1]), fields[2].toBoolean())
+    NearbyStartedSeat(
+        LudoColor.valueOf(fields[0]),
+        decode(fields[1]),
+        fields[2].toBoolean(),
+        team = if (fields.size > 3) fields[3].toIntOrNull()?.takeIf { it in 1..4 } else null,
+    )
 }
 
 private fun encode(value: Any): String = Base64.getUrlEncoder().withoutPadding()

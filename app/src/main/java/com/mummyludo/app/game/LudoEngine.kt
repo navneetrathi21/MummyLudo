@@ -124,15 +124,7 @@ open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
     fun legalMoves(state: GameState): List<UnitMove> {
         val die = state.roll ?: return emptyList()
         val activeSeat = state.seats[state.activeSeat]
-        val own = state.tokens.filter { it.color == activeSeat.color && it.progress != FINISHED }
-        val targetColor = if (own.isEmpty() && activeSeat.team != null) {
-            state.seats.firstOrNull {
-                it.team == activeSeat.team && state.tokens.any { t -> t.color == it.color && t.progress != FINISHED }
-            }?.color ?: activeSeat.color
-        } else {
-            activeSeat.color
-        }
-        val targetTokens = state.tokens.filter { it.color == targetColor && it.progress != FINISHED }
+        val targetTokens = state.tokens.filter { it.color == activeSeat.color && it.progress != FINISHED }
         val explicitPairs = state.pairs.map { it.split(":").toSet() }
         val pairedIds = explicitPairs.flatten().toSet()
         val units = mutableListOf<List<Token>>()
@@ -345,10 +337,7 @@ open class LudoEngine(private val dice: () -> Int = { Random.nextInt(1, 7) }) {
         do {
             next = (next + 1) % state.seats.size
             val seat = state.seats[next]
-            val hasUnfinishedTeammate = seat.team?.let { teamId ->
-                state.seats.any { it.team == teamId && it.color !in state.ranking }
-            } ?: false
-            if (seat.color !in state.ranking || hasUnfinishedTeammate) break
+            if (seat.color !in state.ranking) break
         } while (true)
         return state.copy(
             activeSeat = next,

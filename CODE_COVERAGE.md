@@ -6,8 +6,8 @@ Last completed measurement: 2026-11-13, using `./gradlew testDebugUnitTest creat
 
 | Area | Source file | Line coverage | Being worked on? | Owner | Remarks |
 | --- | --- | ---: | --- | --- | --- |
-| Overall | All app source | 🟢 98.9% (3,030/3,064) | No | — | 12 of 21 source files at 100.00%; all 21 files $\ge 95.5\%$ |
-| Game | `game/LudoEngine.kt` | 🟢 99.7% (290/291) | Done | Codex / Antigravity | Turn loop, friendly-fire immunity for teammates, partner assist moves, team victory resolution, bot heuristics, bank orders, captures, arrow traversals |
+| Overall | All app source | 🟢 98.9% (3,021/3,055) | No | — | 12 of 21 source files at 100.00%; all 21 files $\ge 95.5\%$ |
+| Game | `game/LudoEngine.kt` | 🟢 99.6% (281/282) | Done | Codex / Antigravity | Turn loop, friendly-fire immunity for teammates, own-color movement enforcement, team victory resolution, bot heuristics, bank orders, captures, arrow traversals |
 | Game | `game/DiceRollPath.kt` | 🟢 100.0% (26/26) | Done | Codex | Deterministic roll calculations pass |
 | ViewModels | `viewmodel/GameViewModel.kt` | 🟢 98.4% (61/62) | Done | Antigravity | Active match state, save/restore for local and hosted games, auto-play simulation, and error handling pass |
 | ViewModels | `viewmodel/NearbyLobbyViewModel.kt` | 🟢 98.1% (155/158) | Done | Antigravity | Host/guest session management, QR/payload processing, action broadcasting, bot and team manipulation methods, and lifecycle cleanup pass |

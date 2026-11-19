@@ -485,7 +485,7 @@ class LudoEngineTest {
     }
 
     @Test
-    fun partnerAssistsWithMovementWhenPlayerOwnTokensAreFinished() {
+    fun eachPlayerCanOnlyMoveTheirOwnColorTokensEvenInTeamGames() {
         val engine = LudoEngine { 3 }
         val redSeat = Seat(LudoColor.RED, PlayerType.HUMAN, "Red", team = 1)
         val greenSeat = Seat(LudoColor.GREEN, PlayerType.HUMAN, "Green", team = 1)
@@ -514,15 +514,15 @@ class LudoEngineTest {
             roll = 3,
         )
 
-        // Legal moves for Red should include Green's token since all Red tokens are finished
-        val legalMoves = engine.legalMoves(game)
-        assertTrue(legalMoves.isNotEmpty())
-        assertEquals(listOf("G0"), legalMoves.first().tokenIds)
+        // Red can ONLY move Red tokens: since all Red tokens are finished, legal moves must be empty
+        val redLegalMoves = engine.legalMoves(game)
+        assertTrue(redLegalMoves.isEmpty())
 
-        // Red can move Green's token
-        val result = engine.move(game, legalMoves.first())
-        val movedGreen = result.state.tokens.first { it.id == "G0" }
-        assertEquals(13, movedGreen.progress)
+        // When Green is active, legal moves are strictly Green tokens
+        val greenTurnGame = game.copy(activeSeat = 1)
+        val greenLegalMoves = engine.legalMoves(greenTurnGame)
+        assertTrue(greenLegalMoves.isNotEmpty())
+        assertEquals(listOf("G0"), greenLegalMoves.first().tokenIds)
     }
 
     @Test
@@ -566,7 +566,7 @@ class LudoEngineTest {
     }
 
     @Test
-    fun advanceDoesNotSkipFinishedPlayerWhenPartnerIsStillPlaying() {
+    fun advanceSkipsFinishedPlayerWhileTeammateContinuesPlaying() {
         val engine = LudoEngine { 3 }
         val redSeat = Seat(LudoColor.RED, PlayerType.HUMAN, "Red", team = 1)
         val greenSeat = Seat(LudoColor.GREEN, PlayerType.HUMAN, "Green", team = 2)
@@ -590,15 +590,17 @@ class LudoEngineTest {
                 Token(LudoColor.YELLOW, 2, progress = 0),
                 Token(LudoColor.YELLOW, 3, progress = 0),
             ),
+            ranking = listOf(LudoColor.RED),
             activeSeat = 1, // Green's turn
             awaitingRoll = true,
         )
 
-        // Advance from Green (seat 1) should go to Yellow (seat 2), then to Red (seat 0) because Yellow is still active!
+        // Advance from Green (seat 1) should go to Yellow (seat 2)
         val nextFromGreen = engine.advance(game)
         assertEquals(2, nextFromGreen.activeSeat) // Yellow's turn
 
+        // Advance from Yellow (seat 2) skips finished Red (seat 0) and goes to Green (seat 1)
         val nextFromYellow = engine.advance(nextFromGreen)
-        assertEquals(0, nextFromYellow.activeSeat) // Red's turn (not skipped, because partner Yellow is playing)
+        assertEquals(1, nextFromYellow.activeSeat) // Green's turn (skips finished Red)
     }
 }

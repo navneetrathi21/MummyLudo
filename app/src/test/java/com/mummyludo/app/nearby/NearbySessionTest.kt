@@ -176,11 +176,19 @@ class NearbySessionTest {
         val guestStarted = CountDownLatch(1)
         val guestEvents = LinkedBlockingQueue<NearbyGameEvent>()
         val currentLobby = AtomicReference(initial)
+        val connectedLatch = CountDownLatch(1)
+        val guestReadyLatch = CountDownLatch(1)
 
         val client = NearbyLanClient(
             payload = JoinPayload(initial.sessionId, "127.0.0.1", port, initial.joinToken),
             initialName = "Guest",
-            onLobby = currentLobby::set,
+            onLobby = { lobby ->
+                currentLobby.set(lobby)
+                connectedLatch.countDown()
+                if (lobby.players.size == 2 && lobby.canStart) {
+                    guestReadyLatch.countDown()
+                }
+            },
             onStarted = { seats ->
                 guestGame = engine.newGame(seats.map { Seat(it.color, PlayerType.HUMAN, it.name) })
                 guestStarted.countDown()
@@ -222,19 +230,14 @@ class NearbySessionTest {
             )
 
             client.connect()
+            assertTrue("Client failed to connect to host", connectedLatch.await(5, TimeUnit.SECONDS))
 
             // Update Guest profile and ready
-            var joined = false
-            repeat(20) {
+            repeat(30) {
                 client.updateProfile("Guest", LudoColor.GREEN, true)
-                val lobby = currentLobby.get()
-                if (lobby != null && lobby.players.size == 2 && lobby.canStart) {
-                    joined = true
-                    return@repeat
-                }
-                Thread.sleep(100)
+                if (guestReadyLatch.await(100, TimeUnit.MILLISECONDS)) return@repeat
             }
-            assertTrue("Guest failed to join and get ready", joined)
+            assertTrue("Guest failed to join and get ready", guestReadyLatch.await(3, TimeUnit.SECONDS))
 
             // 1. Host starts the game
             assertTrue("Host failed to start game", host.startGame())

@@ -141,16 +141,16 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 
 ---
 
-## 8. Release Notes (What's New in v0.2.7)
+## 8. Release Notes (What's New in v0.2.8)
 
 ### English (en-US)
 ```
-What's new in version 0.2.7:
-• Roll dice button now dynamically matches the active player's turn color.
-• Screen now stays awake during gameplay to prevent accidental locks.
-• Added match continuation: resume interrupted local or hosted Wi-Fi games from the home screen.
-• Fixed screen-lock restarts so the match remains intact when unlocking your phone.
-• Added an in-game Quit option to exit active matches cleanly to the main menu.
+What's new in version 0.2.8:
+• Revamped lobby into an AOE2-style 4-slot room with Host, Guest, and Open slots.
+• Added customizable AI bots in lobby slots with selectable colors and teams.
+• Added team selection support: play Free-For-All, 2v2, 3v1, or custom team battles!
+• Added friendly-fire immunity so teammate tokens do not capture each other.
+• Added team victory detection and automatic turn advancement for finished teammates.
 ```
 
 ---

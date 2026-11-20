@@ -2,6 +2,15 @@
 
 All notable changes to this project will be recorded here.
 
+## [0.2.9] - 2026-11-20
+### Fixed
+- **Device Availability & Hardware Feature Declarations**:
+  - Declared `android.hardware.screen.portrait` and `android.hardware.screen.landscape` as non-required (`android:required="false"`) in `AndroidManifest.xml`.
+  - Resolved Google Play Console submission blocker restricting availability across tablets, foldables, desktops, Google Play Games on PC, and Android XR devices.
+
+### Changed
+- Bumped application version to `versionCode = 11` and `versionName = "0.2.9"` in `app/build.gradle.kts` for Google Play Store upload.
+
 ## [0.2.8] - 2026-11-20
 ### Added
 - **AOE2-Style 4-Slot Lobby**:

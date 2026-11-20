@@ -141,11 +141,12 @@ https://github.com/navneetrathi21/MummyLudo/blob/main/PRIVACY_POLICY.md
 
 ---
 
-## 8. Release Notes (What's New in v0.2.8)
+## 8. Release Notes (What's New in v0.2.9)
 
 ### English (en-US)
 ```
-What's new in version 0.2.8:
+What's new in version 0.2.9:
+• Expanded device availability to support tablets, foldables, desktops, and large screens.
 • Revamped lobby into an AOE2-style 4-slot room with Host, Guest, and Open slots.
 • Added customizable AI bots in lobby slots with selectable colors and teams.
 • Added team selection support: play Free-For-All, 2v2, 3v1, or custom team battles!

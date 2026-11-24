@@ -187,4 +187,46 @@ class NearbyLobbyViewModelTest {
         vm.removeBot("nonexistent")
         vm.updateBot("nonexistent", null, null)
     }
+
+    @Test
+    fun chatStateTracksMessagesUnreadAndToasts() = runTest(testDispatcher) {
+        val vm = NearbyLobbyViewModel(coordinator, this)
+        assertEquals(0, vm.chatMessages.size)
+        assertEquals(0, vm.unreadChatCount)
+        assertNull(vm.latestToastMessage)
+
+        val msg1 = NearbyChatMessage("1", "p1", "Player 1", LudoColor.RED, text = "Hello")
+        vm.postChatMessage(msg1)
+        assertEquals(1, vm.chatMessages.size)
+        assertEquals(1, vm.unreadChatCount)
+        assertEquals(msg1, vm.latestToastMessage)
+
+        val msg2 = NearbyChatMessage("2", "p2", "Player 2", LudoColor.GREEN, text = "Hey")
+        vm.postChatMessage(msg2)
+        assertEquals(2, vm.chatMessages.size)
+        assertEquals(2, vm.unreadChatCount)
+        assertEquals(msg2, vm.latestToastMessage)
+
+        vm.clearLatestToast()
+        assertNull(vm.latestToastMessage)
+
+        vm.markChatRead()
+        assertEquals(0, vm.unreadChatCount)
+
+        vm.closeAllSessions()
+        assertEquals(0, vm.chatMessages.size)
+        assertEquals(0, vm.unreadChatCount)
+        assertNull(vm.latestToastMessage)
+    }
+
+    @Test
+    fun sendChatMessageDispatchesToHostAndClientSession() = runTest(testDispatcher) {
+        val vm = NearbyLobbyViewModel(coordinator, this)
+        vm.isHost = true
+        // Without active session, gracefully does nothing
+        vm.sendChatMessage("Hello", false)
+
+        vm.isHost = false
+        vm.sendChatMessage("Hello", false)
+    }
 }

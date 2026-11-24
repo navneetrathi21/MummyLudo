@@ -47,8 +47,15 @@ internal fun GameScreen(
     onNearbyAction: ((NearbyGameAction) -> Unit)? = null,
     onQuit: () -> Unit = {},
     onClose: () -> Unit = onQuit,
+    chatMessages: List<NearbyChatMessage> = emptyList(),
+    unreadChatCount: Int = 0,
+    latestToastMessage: NearbyChatMessage? = null,
+    onSendChat: ((String, Boolean) -> Unit)? = null,
+    onClearToast: (() -> Unit)? = null,
+    onMarkChatRead: (() -> Unit)? = null,
 ) {
     var showQuit by remember { mutableStateOf(false) }
+    var showChat by remember { mutableStateOf(false) }
     var rolling by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf(false) }
     var animatedFace by remember { mutableIntStateOf(1) }
@@ -167,12 +174,30 @@ internal fun GameScreen(
                 )
                 Text("Turn ${state.turn} · ${state.message}", color = Ink.copy(.62f), fontSize = 13.sp)
             }
-            TextButton(
-                onClick = { showQuit = true },
-                modifier = Modifier.testTag("game_quit_button"),
-            ) {
-                Text("Quit", color = MaterialTheme.colorScheme.error)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onSendChat != null) {
+                    ChatButtonWithBadge(
+                        unreadCount = unreadChatCount,
+                        onClick = {
+                            showChat = true
+                            onMarkChatRead?.invoke()
+                        },
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                TextButton(
+                    onClick = { showQuit = true },
+                    modifier = Modifier.testTag("game_quit_button"),
+                ) {
+                    Text("Quit", color = MaterialTheme.colorScheme.error)
+                }
             }
+        }
+        if (latestToastMessage != null) {
+            FloatingChatToast(
+                message = latestToastMessage,
+                onDismiss = { onClearToast?.invoke() },
+            )
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
@@ -326,6 +351,18 @@ internal fun GameScreen(
             }
         },
     )
+
+    if (showChat && onSendChat != null) {
+        val localSeat = state.seats.firstOrNull { it.color == localColor }
+        ChatBottomSheet(
+            messages = chatMessages,
+            localPlayerTeam = localSeat?.team,
+            onDismiss = { showChat = false },
+            onSend = { text, isTeamOnly ->
+                onSendChat(text, isTeamOnly)
+            },
+        )
+    }
 }
 
 @Composable

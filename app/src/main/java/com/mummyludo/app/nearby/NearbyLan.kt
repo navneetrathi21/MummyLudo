@@ -14,6 +14,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
+import kotlin.random.Random
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -34,6 +35,7 @@ class NearbyLanHost(
     private val onStarted: (List<NearbyStartedSeat>) -> Unit,
     private val onGameAction: (String, NearbyGameAction) -> Unit = { _, _ -> },
     val port: Int = 42871,
+    private val onChatMessage: (NearbyChatMessage) -> Unit = {},
 ) : Closeable {
     private val server = ServerSocket().apply {
         reuseAddress = true
@@ -117,6 +119,12 @@ class NearbyLanHost(
                             } else if (parts.size == 2 && parts[0] == "ACTION") {
                                 NearbyGameActionCodec.decode(decode(parts[1]))?.let { action ->
                                     onGameAction(playerId, action)
+                                }
+                            } else if (parts.size >= 3 && parts[0] == "CHAT") {
+                                val isTeamOnly = parts[1].toBooleanStrictOrNull() ?: false
+                                val text = decode(parts[2]).trim().take(120)
+                                if (text.isNotBlank()) {
+                                    handleClientChat(playerId, text, isTeamOnly)
                                 }
                             }
                         }
@@ -208,6 +216,64 @@ class NearbyLanHost(
         }
     }
 
+    @Synchronized
+    private fun handleClientChat(playerId: String, text: String, isTeamOnly: Boolean) {
+        val sender = lobby.players.firstOrNull { it.id == playerId } ?: return
+        val msg = NearbyChatMessage(
+            id = "msg-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}",
+            senderId = sender.id,
+            senderName = sender.name,
+            color = sender.color ?: LudoColor.RED,
+            team = sender.team,
+            text = text,
+            isTeamOnly = isTeamOnly,
+        )
+        val packet = "CHAT|${encode(msg.id)}|${encode(msg.senderId)}|${encode(msg.senderName)}|${msg.color.name}|${msg.team ?: 0}|$isTeamOnly|${msg.timestamp}|${encode(msg.text)}"
+        if (isTeamOnly && sender.team != null) {
+            val hostPlayer = lobby.players.firstOrNull { it.isHost }
+            if (hostPlayer?.team == sender.team) {
+                onChatMessage(msg)
+            }
+            val teammates = lobby.players.filter { it.team == sender.team && !it.isHost }
+            teammates.forEach { tm ->
+                clients[tm.id]?.let { writer ->
+                    broadcastExecutor.execute { runCatching { writer.send(packet) } }
+                }
+            }
+        } else {
+            onChatMessage(msg)
+            broadcastAsync(packet)
+        }
+    }
+
+    @Synchronized
+    fun sendChatMessage(text: String, isTeamOnly: Boolean = false) {
+        val hostPlayer = lobby.players.firstOrNull { it.isHost } ?: return
+        val trimmed = text.trim().take(120)
+        if (trimmed.isBlank()) return
+        val msg = NearbyChatMessage(
+            id = "msg-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}",
+            senderId = hostPlayer.id,
+            senderName = hostPlayer.name,
+            color = hostPlayer.color ?: LudoColor.RED,
+            team = hostPlayer.team,
+            text = trimmed,
+            isTeamOnly = isTeamOnly,
+        )
+        val packet = "CHAT|${encode(msg.id)}|${encode(msg.senderId)}|${encode(msg.senderName)}|${msg.color.name}|${msg.team ?: 0}|$isTeamOnly|${msg.timestamp}|${encode(msg.text)}"
+        onChatMessage(msg)
+        if (isTeamOnly && hostPlayer.team != null) {
+            val teammates = lobby.players.filter { it.team == hostPlayer.team && !it.isHost }
+            teammates.forEach { tm ->
+                clients[tm.id]?.let { writer ->
+                    broadcastExecutor.execute { runCatching { writer.send(packet) } }
+                }
+            }
+        } else {
+            broadcastAsync(packet)
+        }
+    }
+
     override fun close() {
         running = false
         broadcastExecutor.shutdownNow()
@@ -226,6 +292,7 @@ class NearbyLanClient(
     private val onStarted: (List<NearbyStartedSeat>) -> Unit,
     private val onError: (String) -> Unit,
     private val onGameEvent: (NearbyGameEvent) -> Unit = {},
+    private val onChatMessage: (NearbyChatMessage) -> Unit = {},
 ) : Closeable {
     val playerId: String = UUID.randomUUID().toString()
     @Volatile private var socket: Socket? = null
@@ -251,6 +318,7 @@ class NearbyLanClient(
                         "START" -> onStarted(decodeSeats(parts.getOrElse(1) { "" }))
                         "ERROR" -> onError(decode(parts.getOrElse(1) { "" }))
                         "EVENT" -> NearbyGameEventCodec.decode(decode(parts.getOrElse(1) { "" }))?.let(onGameEvent)
+                        "CHAT" -> decodeChatMessage(parts.getOrElse(1) { "" })?.let(onChatMessage)
                     }
                 }
             }.onFailure {
@@ -266,6 +334,13 @@ class NearbyLanClient(
 
     fun sendGameAction(action: NearbyGameAction) {
         val message = "ACTION|${encode(NearbyGameActionCodec.encode(action))}"
+        sendAsync(message)
+    }
+
+    fun sendChatMessage(text: String, isTeamOnly: Boolean = false) {
+        val trimmed = text.trim().take(120)
+        if (trimmed.isBlank()) return
+        val message = "CHAT|$isTeamOnly|${encode(trimmed)}"
         sendAsync(message)
     }
 
@@ -442,3 +517,18 @@ internal fun checkHost(ip: String, port: Int, roomCode: String, timeoutMs: Int =
         response != null && response.trim() == "ROOM|$roomCode"
     }
 }.getOrDefault(false)
+
+internal fun decodeChatMessage(raw: String): NearbyChatMessage? = runCatching {
+    val fields = raw.split('|')
+    if (fields.size < 8) return null
+    NearbyChatMessage(
+        id = decode(fields[0]),
+        senderId = decode(fields[1]),
+        senderName = decode(fields[2]),
+        color = LudoColor.valueOf(fields[3]),
+        team = fields[4].toIntOrNull()?.takeIf { it in 1..4 },
+        isTeamOnly = fields[5].toBooleanStrictOrNull() ?: false,
+        timestamp = fields[6].toLongOrNull() ?: System.currentTimeMillis(),
+        text = decode(fields[7]),
+    )
+}.getOrNull()

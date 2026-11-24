@@ -66,6 +66,17 @@ object JoinPayloadCodec {
 
 enum class NearbyConnectionState { CONNECTED, DISCONNECTED }
 
+data class NearbyChatMessage(
+    val id: String,
+    val senderId: String,
+    val senderName: String,
+    val color: LudoColor,
+    val team: Int? = null,
+    val text: String,
+    val isTeamOnly: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
 data class NearbyPlayer(
     val id: String,
     val name: String,

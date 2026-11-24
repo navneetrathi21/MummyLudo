@@ -45,6 +45,8 @@ fun GuestLobbyScreen(
     onBack: () -> Unit,
     onProfile: (String, LudoColor?, Boolean, Int?) -> Unit,
     modifier: Modifier = Modifier,
+    chatMessages: List<NearbyChatMessage> = emptyList(),
+    onSendChat: ((String) -> Unit)? = null,
 ) {
     val me = lobby?.players?.firstOrNull { it.id == playerId }
     val isReady = me?.ready == true
@@ -239,6 +241,14 @@ fun GuestLobbyScreen(
                 Spacer(Modifier.height(2.dp))
                 Text(describeMatchTeams(lobby.players), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
             }
+        }
+
+        if (onSendChat != null) {
+            Spacer(Modifier.height(12.dp))
+            LobbyChatSection(
+                messages = chatMessages,
+                onSend = onSendChat,
+            )
         }
         }
 

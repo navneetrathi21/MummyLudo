@@ -92,6 +92,8 @@ fun HostLobbyScreen(
     onRemoveBot: (String) -> Unit = {},
     onUpdateBot: (String, LudoColor?, Int?) -> Unit = { _, _, _ -> },
     onStart: () -> Unit,
+    chatMessages: List<NearbyChatMessage> = emptyList(),
+    onSendChat: ((String) -> Unit)? = null,
 ) {
     val joinCode = hostAddress?.let { JoinPayloadCodec.encode(JoinPayload(lobby.roomCode, it, 42871, lobby.joinToken)) }
     val hostPlayer = lobby.players.firstOrNull { it.isHost }
@@ -101,7 +103,6 @@ fun HostLobbyScreen(
         Modifier
             .fillMaxSize()
             .background(NearbyCream)
-            .verticalScroll(rememberScrollState())
             .padding(20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -109,7 +110,12 @@ fun HostLobbyScreen(
             Text("Host lobby", fontSize = 25.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
         }
         Spacer(Modifier.height(10.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(wifiName ?: "Same Wi-Fi Network", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.testTag("host_wifi_name"))
                 if (wifiName != null) {
@@ -424,6 +430,15 @@ fun HostLobbyScreen(
                 Spacer(Modifier.height(2.dp))
                 Text(describeMatchTeams(lobby.players), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = NearbyInk)
             }
+        }
+
+        if (onSendChat != null) {
+            Spacer(Modifier.height(14.dp))
+            LobbyChatSection(
+                messages = chatMessages,
+                onSend = onSendChat,
+            )
+        }
         }
 
         Spacer(Modifier.height(14.dp))

@@ -1,7 +1,9 @@
 package com.mummyludo.app.viewmodel
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -48,6 +50,36 @@ open class NearbyLobbyViewModel(
     var sequence by mutableLongStateOf(0L)
         internal set
 
+    val chatMessages = mutableStateListOf<NearbyChatMessage>()
+
+    var unreadChatCount by mutableIntStateOf(0)
+        internal set
+
+    var latestToastMessage by mutableStateOf<NearbyChatMessage?>(null)
+        internal set
+
+    fun postChatMessage(msg: NearbyChatMessage) {
+        chatMessages.add(msg)
+        unreadChatCount++
+        latestToastMessage = msg
+    }
+
+    fun markChatRead() {
+        unreadChatCount = 0
+    }
+
+    fun clearLatestToast() {
+        latestToastMessage = null
+    }
+
+    fun sendChatMessage(text: String, isTeamOnly: Boolean = false) {
+        if (isHost) {
+            hostSession?.sendChatMessage(text, isTeamOnly)
+        } else {
+            clientSession?.sendChatMessage(text, isTeamOnly)
+        }
+    }
+
     fun startHosting(
         initialPlayerName: String = "Player 1",
         onStarted: (List<NearbyStartedSeat>) -> Unit,
@@ -59,6 +91,9 @@ open class NearbyLobbyViewModel(
         nearbyLocalColor = LudoColor.RED
         nearbyEvent = null
         nearbyError = null
+        chatMessages.clear()
+        unreadChatCount = 0
+        latestToastMessage = null
         hostSession?.close()
         hostSession = null
 
@@ -80,6 +115,7 @@ open class NearbyLobbyViewModel(
                         onGameAction(playerColor, action)
                     }
                 },
+                onChatMessage = { msg -> scope.launch { postChatMessage(msg) } },
             )
         }.onFailure {
             nearbyError = "Could not start the local game server"
@@ -99,6 +135,9 @@ open class NearbyLobbyViewModel(
         nearbyError = null
         isHost = false
         nearbyEvent = null
+        chatMessages.clear()
+        unreadChatCount = 0
+        latestToastMessage = null
 
         lateinit var client: NearbyLanClient
         client = NearbyLanClient(
@@ -114,6 +153,7 @@ open class NearbyLobbyViewModel(
             },
             onError = { message -> scope.launch { nearbyError = message } },
             onGameEvent = { event -> scope.launch { nearbyEvent = event } },
+            onChatMessage = { msg -> scope.launch { postChatMessage(msg) } },
         )
         clientSession = client
         client.connect()
@@ -217,12 +257,18 @@ open class NearbyLobbyViewModel(
         hostSession?.close()
         hostSession = null
         hostLobby = null
+        chatMessages.clear()
+        unreadChatCount = 0
+        latestToastMessage = null
     }
 
     fun closeGuest() {
         clientSession?.close()
         clientSession = null
         guestLobby = null
+        chatMessages.clear()
+        unreadChatCount = 0
+        latestToastMessage = null
     }
 
     fun closeAllSessions() {
@@ -235,6 +281,9 @@ open class NearbyLobbyViewModel(
         nearbyLocalColor = null
         nearbyEvent = null
         isHost = false
+        chatMessages.clear()
+        unreadChatCount = 0
+        latestToastMessage = null
     }
 
     public override fun onCleared() {

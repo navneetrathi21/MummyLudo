@@ -304,6 +304,58 @@ class GameScreenTest {
         assertEquals(Yellow to Ink, rollButtonColorsFor(LudoColor.YELLOW))
     }
 
+    @Test
+    fun chatInteractionsInGameScreen() {
+        val engine = LudoEngine { 6 }
+        val state = engine.newGame(humanSeats)
+        var chatMarkedRead = false
+        var sentMessage = ""
+        var clearedToast = false
+        val toast = com.mummyludo.app.nearby.NearbyChatMessage(
+            id = "t1",
+            senderId = "p2",
+            senderName = "Opponent",
+            color = LudoColor.YELLOW,
+            text = "Nice roll!",
+        )
+
+        compose.setContent {
+            GameScreen(
+                state = state,
+                engine = engine,
+                onState = {},
+                onAutoPlay = {},
+                autoPlayRunning = false,
+                chatMessages = listOf(toast),
+                unreadChatCount = 1,
+                latestToastMessage = toast,
+                onSendChat = { text, _ -> sentMessage = text },
+                onClearToast = { clearedToast = true },
+                onMarkChatRead = { chatMarkedRead = true },
+            )
+        }
+
+        // Floating toast is displayed
+        compose.onNodeWithTag("floating_chat_toast").assertIsDisplayed()
+        compose.onNodeWithTag("floating_chat_dismiss").performClick()
+        assertTrue(clearedToast)
+
+        // Chat button with badge is displayed
+        compose.onNodeWithTag("chat_toggle_button").assertIsDisplayed()
+        compose.onNodeWithTag("chat_unread_badge").assertIsDisplayed()
+        compose.onNodeWithTag("chat_toggle_button").performClick()
+        assertTrue(chatMarkedRead)
+
+        // Bottom sheet opens
+        compose.onNodeWithTag("chat_bottom_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("chat_quick_reaction_1").performClick()
+        assertEquals("😂 Haha", sentMessage)
+
+        // Close bottom sheet
+        compose.onNodeWithTag("chat_close_button").performClick()
+        compose.onNodeWithTag("chat_bottom_sheet").assertDoesNotExist()
+    }
+
     private fun render(
         engine: LudoEngine,
         state: () -> GameState,

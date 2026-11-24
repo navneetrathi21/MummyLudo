@@ -643,4 +643,94 @@ class NearbySessionTest {
         assertEquals(3, removedBot.players.size)
         assertTrue(removedBot.players.none { it.id == bot2Id })
     }
+
+    @Test
+    fun `chat message decode handles valid and malformed packets`() {
+        val validRaw = "bXNnLTE|cDE|QWxpY2U|RED|1|true|1700000000000|SGVsbG8"
+        val decoded = decodeChatMessage(validRaw)
+        assertNotNull(decoded)
+        assertEquals("msg-1", decoded?.id)
+        assertEquals("p1", decoded?.senderId)
+        assertEquals("Alice", decoded?.senderName)
+        assertEquals(LudoColor.RED, decoded?.color)
+        assertEquals(1, decoded?.team)
+        assertEquals(true, decoded?.isTeamOnly)
+        assertEquals(1700000000000L, decoded?.timestamp)
+        assertEquals("Hello", decoded?.text)
+
+        // Malformed packet (< 8 parts)
+        assertNull(decodeChatMessage("short|packet"))
+    }
+
+    @Test
+    fun `chat message exchanges between host and client over socket`() {
+        val coordinator = NearbyLobbyCoordinator()
+        val initial = coordinator.createHost("Host")
+        val port = 42895
+        var host: NearbyLanHost? = null
+
+        val hostReceivedChat = LinkedBlockingQueue<NearbyChatMessage>()
+        val clientReceivedChat = LinkedBlockingQueue<NearbyChatMessage>()
+        val clientConnectedLatch = CountDownLatch(1)
+
+        val client = NearbyLanClient(
+            payload = JoinPayload(initial.sessionId, "127.0.0.1", port, initial.joinToken),
+            initialName = "Guest",
+            onLobby = { clientConnectedLatch.countDown() },
+            onStarted = {},
+            onError = {},
+            onChatMessage = { clientReceivedChat.offer(it) },
+        )
+
+        try {
+            host = NearbyLanHost(
+                initialLobby = initial,
+                coordinator = coordinator,
+                onLobby = {},
+                onStarted = {},
+                port = port,
+                onChatMessage = { hostReceivedChat.offer(it) },
+            )
+            client.connect()
+            assertTrue("Client should connect", clientConnectedLatch.await(5, TimeUnit.SECONDS))
+
+            // 1. Host sends public chat message
+            host.sendChatMessage("Hello from host!", isTeamOnly = false)
+            val hostChatAtHost = hostReceivedChat.poll(3, TimeUnit.SECONDS)
+            assertNotNull(hostChatAtHost)
+            assertEquals("Hello from host!", hostChatAtHost?.text)
+            assertEquals(LudoColor.RED, hostChatAtHost?.color)
+
+            val hostChatAtClient = clientReceivedChat.poll(3, TimeUnit.SECONDS)
+            assertNotNull(hostChatAtClient)
+            assertEquals("Hello from host!", hostChatAtClient?.text)
+
+            // 2. Client sends public chat message
+            client.sendChatMessage("Hello from guest!", isTeamOnly = false)
+            val guestChatAtHost = hostReceivedChat.poll(3, TimeUnit.SECONDS)
+            assertNotNull(guestChatAtHost)
+            assertEquals("Hello from guest!", guestChatAtHost?.text)
+
+            val guestChatAtClient = clientReceivedChat.poll(3, TimeUnit.SECONDS)
+            assertNotNull(guestChatAtClient)
+            assertEquals("Hello from guest!", guestChatAtClient?.text)
+
+            // 3. Blank chat ignored
+            client.sendChatMessage("   ", isTeamOnly = false)
+            assertNull(hostReceivedChat.poll(200, TimeUnit.MILLISECONDS))
+            host.sendChatMessage("", isTeamOnly = false)
+            assertNull(clientReceivedChat.poll(200, TimeUnit.MILLISECONDS))
+
+            // 4. Host sends team chat when having a team
+            host.updateProfile("Host", LudoColor.RED, false, team = 1)
+            host.sendChatMessage("Team 1 only", isTeamOnly = true)
+            val hostTeamMsg = hostReceivedChat.poll(3, TimeUnit.SECONDS)
+            assertNotNull(hostTeamMsg)
+            assertEquals("Team 1 only", hostTeamMsg?.text)
+            assertTrue(hostTeamMsg?.isTeamOnly == true)
+        } finally {
+            client.close()
+            host?.close()
+        }
+    }
 }

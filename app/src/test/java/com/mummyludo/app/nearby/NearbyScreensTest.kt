@@ -192,7 +192,7 @@ class NearbyScreensTest {
         compose.onNodeWithTag("host_game_qr").assertIsDisplayed()
         compose.onNodeWithContentDescription("Game join QR code").assertIsDisplayed()
         LudoColor.entries.forEach { compose.onNodeWithText(it.label).assertExists() }
-        compose.onNodeWithTag("host_start_game").performScrollTo().assertIsEnabled().performClick()
+        compose.onNodeWithTag("host_start_game").assertIsEnabled().performClick()
 
         assertTrue(started)
     }

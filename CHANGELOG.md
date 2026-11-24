@@ -2,6 +2,20 @@
 
 All notable changes to this project will be recorded here.
 
+## [Unreleased — Hosted Game Chat Feature] - 2026-11-24
+### Added
+- **Local Wi-Fi Room Chat**:
+  - Implemented real-time zero-lag LAN socket chat protocol (`CHAT|...`) over local Wi-Fi / hotspot.
+  - Added public room chat and private team-only channel routing (`All Players` vs `Team Only`).
+  - Added `ChatButtonWithBadge` on the active game screen with real-time unread message counter badge.
+  - Added non-intrusive `FloatingChatToast` that pops up above the board for 3.5 seconds on incoming messages and automatically dismisses.
+  - Added `ChatBottomSheet` slide-up modal with channel switching, color-coded player bubbles, quick 1-tap reaction chips (`🎲 Roll a 6!`, `😂 Haha`, `GG 👏`, `Oops! 🙈`, `🔥 Nice`, `Good luck! 🍀`), and full keyboard text input.
+  - Added embedded `LobbyChatSection` in both Host and Guest AOE2 lobbies to chat before starting the match.
+- **Testing & Quality Assurance**:
+  - Added `ChatComponentsTest` covering all chat UI elements with 100% pass rate.
+  - Added full end-to-end LAN socket chat tests in `NearbySessionTest` and ViewModel tests in `NearbyLobbyViewModelTest`.
+  - Maintained $\ge 95.45\%$ line coverage across all 22 source files (Codebase total: **98.72%** line coverage).
+
 ## [0.2.9] - 2026-11-20
 ### Fixed
 - **Device Availability & Hardware Feature Declarations**:

@@ -181,6 +181,12 @@ fun MummyLudoApp(
                             gameVm.clearAndCloseGame()
                             page = Page.HOME
                         },
+                        chatMessages = nearbyVm.chatMessages,
+                        unreadChatCount = nearbyVm.unreadChatCount,
+                        latestToastMessage = nearbyVm.latestToastMessage,
+                        onSendChat = if (nearbyVm.nearbyLocalColor != null) { text, isTeam -> nearbyVm.sendChatMessage(text, isTeam) } else null,
+                        onClearToast = { nearbyVm.clearLatestToast() },
+                        onMarkChatRead = { nearbyVm.markChatRead() },
                     )
                 } else {
                     Box(Modifier.fillMaxSize())
@@ -225,6 +231,8 @@ fun MummyLudoApp(
                 onRemoveBot = { nearbyVm.removeBot(it) },
                 onUpdateBot = { botId, color, team -> nearbyVm.updateBot(botId, color, team) },
                 onStart = { nearbyVm.hostSession?.startGame() },
+                chatMessages = nearbyVm.chatMessages,
+                onSendChat = { text -> nearbyVm.sendChatMessage(text, false) },
             )
             Page.JOIN_NEARBY -> JoinNearbyScreen(
                 initialCode = scannedGameCode,
@@ -257,6 +265,8 @@ fun MummyLudoApp(
                     page = Page.NEARBY
                 },
                 onProfile = { name, color, ready, team -> nearbyVm.updateGuestProfile(name, color, ready, team) },
+                chatMessages = nearbyVm.chatMessages,
+                onSendChat = { text -> nearbyVm.sendChatMessage(text, false) },
             )
         }
     }

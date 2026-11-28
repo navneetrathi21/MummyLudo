@@ -60,8 +60,15 @@ open class NearbyLobbyViewModel(
 
     fun postChatMessage(msg: NearbyChatMessage) {
         chatMessages.add(msg)
-        unreadChatCount++
-        latestToastMessage = msg
+        val localPlayerId = if (isHost) {
+            hostLobby?.players?.firstOrNull { it.isHost }?.id
+        } else {
+            clientSession?.playerId
+        }
+        if (msg.senderId != localPlayerId) {
+            unreadChatCount++
+            latestToastMessage = msg
+        }
     }
 
     fun markChatRead() {
@@ -106,6 +113,8 @@ open class NearbyLobbyViewModel(
                     scope.launch {
                         val hostColor = hostLobby?.players?.firstOrNull { it.isHost }?.color ?: LudoColor.RED
                         nearbyLocalColor = hostColor
+                        unreadChatCount = 0
+                        latestToastMessage = null
                         onStarted(seats)
                     }
                 },
@@ -148,6 +157,8 @@ open class NearbyLobbyViewModel(
                 scope.launch {
                     val localColor = guestLobby?.players?.firstOrNull { it.id == client.playerId }?.color
                     nearbyLocalColor = localColor
+                    unreadChatCount = 0
+                    latestToastMessage = null
                     onStarted(seats, localColor)
                 }
             },

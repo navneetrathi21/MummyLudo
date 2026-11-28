@@ -532,11 +532,11 @@ class NearbySessionTest {
             val wrong = discoverHostByRoomCode("0000", localIp = "127.0.0.1")
             assertNull(wrong)
 
-            val subnetFound = discoverHostByRoomCode(initial.roomCode, localIp = "127.0.0.2", subnetRange = 1..1)
+            val subnetFound = discoverHostByRoomCode(initial.roomCode, localIp = "127.0.0.2", subnetRange = 1..1, enableUdp = false)
             assertNotNull(subnetFound)
             assertEquals("127.0.0.1", subnetFound?.hostAddress)
 
-            val subnetNotFound = discoverHostByRoomCode(initial.roomCode, localIp = "192.0.2.1", subnetRange = 1..1)
+            val subnetNotFound = discoverHostByRoomCode(initial.roomCode, localIp = "192.0.2.1", subnetRange = 1..1, enableUdp = false)
             assertNull(subnetNotFound)
         }
     }

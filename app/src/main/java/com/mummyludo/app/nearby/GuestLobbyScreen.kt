@@ -79,7 +79,12 @@ fun GuestLobbyScreen(
             return@Column
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+        ) {
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(18.dp),
@@ -93,7 +98,7 @@ fun GuestLobbyScreen(
                     singleLine = true,
                     enabled = !isReady,
                     supportingText = if (isReady) {
-                        { Text("Unready to change name or color", color = NearbyInk.copy(.6f), fontSize = 12.sp) }
+                        { Text("Unready to change name, color, or team", color = NearbyInk.copy(.6f), fontSize = 12.sp) }
                     } else null,
                     modifier = Modifier.fillMaxWidth().testTag("guest_name"),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -155,12 +160,7 @@ fun GuestLobbyScreen(
         }
 
         Spacer(Modifier.height(10.dp))
-        Column(
-            Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Row(
+        Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,

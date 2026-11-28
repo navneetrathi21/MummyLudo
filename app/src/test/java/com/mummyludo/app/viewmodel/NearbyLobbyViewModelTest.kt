@@ -229,4 +229,25 @@ class NearbyLobbyViewModelTest {
         vm.isHost = false
         vm.sendChatMessage("Hello", false)
     }
+
+    @Test
+    fun selfSentMessagesDoNotIncrementUnreadOrTriggerToast() = runTest(testDispatcher) {
+        val vm = NearbyLobbyViewModel(coordinator, this)
+        val initial = coordinator.createHost("Host")
+        vm.isHost = true
+        vm.hostLobby = initial
+        val hostId = initial.players.first { it.isHost }.id
+
+        val selfMsg = NearbyChatMessage("m1", hostId, "Host", LudoColor.RED, text = "My own message")
+        vm.postChatMessage(selfMsg)
+        assertEquals(1, vm.chatMessages.size)
+        assertEquals(0, vm.unreadChatCount)
+        assertNull(vm.latestToastMessage)
+
+        val otherMsg = NearbyChatMessage("m2", "guest-1", "Guest", LudoColor.GREEN, text = "Hi host!")
+        vm.postChatMessage(otherMsg)
+        assertEquals(2, vm.chatMessages.size)
+        assertEquals(1, vm.unreadChatCount)
+        assertEquals(otherMsg, vm.latestToastMessage)
+    }
 }

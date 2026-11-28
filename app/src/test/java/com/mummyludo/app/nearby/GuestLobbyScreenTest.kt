@@ -91,7 +91,7 @@ class GuestLobbyScreenTest {
         compose.onNodeWithText("Host").assertIsDisplayed()
         compose.onNodeWithText("Not ready").assertIsDisplayed()
         compose.onNodeWithText("Locked (ready)").assertIsDisplayed()
-        compose.onNodeWithText("Unready to change name or color").assertIsDisplayed()
+        compose.onNodeWithText("Unready to change name, color, or team").assertIsDisplayed()
 
         // Name and color circles are disabled when player is ready
         compose.onNodeWithTag("guest_name").assertIsNotEnabled()

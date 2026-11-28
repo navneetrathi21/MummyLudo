@@ -472,6 +472,7 @@ suspend fun discoverHostByRoomCode(
     port: Int = 42871,
     subnetRange: IntProgression = 1..254,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    enableUdp: Boolean = true,
 ): JoinPayload? = withContext(ioDispatcher) {
     val cleanCode = roomCode.trim()
     if (cleanCode.length != 4 || !cleanCode.all { it.isDigit() }) return@withContext null
@@ -488,13 +489,15 @@ suspend fun discoverHostByRoomCode(
         }
     }
 
-    discoverHostViaUdp(cleanCode, localIp, port)?.let { foundIp ->
-        return@withContext JoinPayload(
-            sessionId = cleanCode,
-            hostAddress = foundIp,
-            port = port,
-            joinToken = cleanCode,
-        )
+    if (enableUdp) {
+        discoverHostViaUdp(cleanCode, localIp, port)?.let { foundIp ->
+            return@withContext JoinPayload(
+                sessionId = cleanCode,
+                hostAddress = foundIp,
+                port = port,
+                joinToken = cleanCode,
+            )
+        }
     }
 
     if (localIp != null && localIp.count { it == '.' } == 3) {

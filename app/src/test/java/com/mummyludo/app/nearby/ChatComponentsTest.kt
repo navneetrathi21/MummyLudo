@@ -238,4 +238,24 @@ class ChatComponentsTest {
         compose.onNodeWithText("Guest: ").assertIsDisplayed()
         compose.onNodeWithText("Ready!").assertIsDisplayed()
     }
+
+    @Test
+    fun chatBottomSheetAndLobbySectionUpdateLiveWithSnapshotStateList() {
+        val liveMessages = androidx.compose.runtime.mutableStateListOf<NearbyChatMessage>()
+        compose.setContent {
+            androidx.compose.foundation.layout.Column {
+                LobbyChatSection(messages = liveMessages, onSend = {})
+                ChatBottomSheet(
+                    messages = liveMessages,
+                    localPlayerTeam = null,
+                    onDismiss = {},
+                    onSend = { _, _ -> },
+                )
+            }
+        }
+
+        compose.onNodeWithText("No messages yet. Say hello!").assertIsDisplayed()
+        liveMessages.add(NearbyChatMessage("live-1", "p1", "Alice", LudoColor.RED, text = "Live update!"))
+        compose.onAllNodesWithText("Live update!").assertCountEquals(2)
+    }
 }

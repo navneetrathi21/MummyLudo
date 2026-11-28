@@ -196,12 +196,10 @@ fun ChatBottomSheet(
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    val filteredMessages = remember(messages, isTeamTab, localPlayerTeam) {
-        if (isTeamTab && localPlayerTeam != null) {
-            messages.filter { it.isTeamOnly && it.team == localPlayerTeam }
-        } else {
-            messages.filter { !it.isTeamOnly || it.team == localPlayerTeam }
-        }
+    val filteredMessages = if (isTeamTab && localPlayerTeam != null) {
+        messages.filter { it.isTeamOnly && it.team == localPlayerTeam }
+    } else {
+        messages.filter { !it.isTeamOnly || it.team == localPlayerTeam }
     }
 
     LaunchedEffect(filteredMessages.size) {
@@ -215,13 +213,16 @@ fun ChatBottomSheet(
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.45f))
             .clickable(onClick = onDismiss)
+            .navigationBarsPadding()
+            .imePadding()
             .testTag("chat_bottom_sheet"),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Card(
             modifier = Modifier
+                .widthIn(max = 600.dp)
                 .fillMaxWidth()
-                .fillMaxHeight(0.72f)
+                .fillMaxHeight(0.78f)
                 .clickable(enabled = false) {}, // Prevent dismiss when tapping inside card
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F4EA)),
@@ -498,7 +499,7 @@ fun LobbyChatSection(
             Spacer(Modifier.height(6.dp))
 
             // Show last 3 messages
-            val recent = remember(messages) { messages.takeLast(3) }
+            val recent = messages.takeLast(3)
             if (recent.isEmpty()) {
                 Text(
                     text = "No messages yet. Chat with players here!",
@@ -537,10 +538,9 @@ fun LobbyChatSection(
                 OutlinedTextField(
                     value = inputText,
                     onValueChange = { inputText = it.take(120) },
-                    placeholder = { Text("Send a chat...", fontSize = 12.sp) },
+                    placeholder = { Text("Send a chat...", fontSize = 13.sp) },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
                         .testTag("lobby_chat_input"),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
@@ -558,7 +558,7 @@ fun LobbyChatSection(
                         }
                     },
                     modifier = Modifier
-                        .height(48.dp)
+                        .height(52.dp)
                         .testTag("lobby_chat_send"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3F725F)),

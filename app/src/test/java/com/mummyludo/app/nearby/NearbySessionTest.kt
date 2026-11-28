@@ -733,4 +733,28 @@ class NearbySessionTest {
             host?.close()
         }
     }
+
+    @Test
+    fun `discoverHostViaUdp finds running host on loopback and ignores mismatch`() {
+        val coordinator = NearbyLobbyCoordinator()
+        val initial = coordinator.createHost("Host")
+        val port = 42896
+        val host = NearbyLanHost(
+            initialLobby = initial,
+            coordinator = coordinator,
+            onLobby = {},
+            onStarted = {},
+            port = port,
+        )
+        try {
+            assertNotNull("udpDiscoverySocket should be bound", host.udpDiscoverySocket)
+            Thread.sleep(100)
+            val found = discoverHostViaUdp(initial.roomCode, "127.0.0.1", port, timeoutMs = 600)
+            assertNotNull("Expected UDP discovery for code=${initial.roomCode} on port=$port", found)
+            val notFound = discoverHostViaUdp("0000", "127.0.0.1", port, timeoutMs = 200)
+            assertNull(notFound)
+        } finally {
+            host.close()
+        }
+    }
 }

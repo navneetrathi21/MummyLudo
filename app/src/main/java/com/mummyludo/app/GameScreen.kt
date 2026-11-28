@@ -193,11 +193,17 @@ internal fun GameScreen(
                 }
             }
         }
-        if (latestToastMessage != null) {
+        if (latestToastMessage != null && !showChat) {
             FloatingChatToast(
                 message = latestToastMessage,
                 onDismiss = { onClearToast?.invoke() },
             )
+        }
+        LaunchedEffect(showChat, chatMessages.size) {
+            if (showChat) {
+                onMarkChatRead?.invoke()
+                onClearToast?.invoke()
+            }
         }
         Spacer(Modifier.height(8.dp))
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {

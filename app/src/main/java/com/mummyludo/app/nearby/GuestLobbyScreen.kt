@@ -59,6 +59,9 @@ fun GuestLobbyScreen(
         modifier
             .fillMaxSize()
             .background(NearbyCream)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
             .padding(20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

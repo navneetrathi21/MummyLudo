@@ -6,6 +6,9 @@ import java.io.BufferedWriter
 import java.io.Closeable
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -48,10 +51,38 @@ class NearbyLanHost(
     }
     @Volatile private var lobby = initialLobby
     @Volatile private var running = true
+    internal var udpDiscoverySocket: DatagramSocket? = runCatching {
+        DatagramSocket(port).apply {
+            broadcast = true
+        }
+    }.getOrNull()
 
     init {
         thread(name = "mummy-ludo-host", isDaemon = true) {
             while (running) runCatching { server.accept() }.onSuccess(::handle)
+        }
+        udpDiscoverySocket?.let { udp ->
+            thread(name = "mummy-ludo-udp-discovery", isDaemon = true) {
+                runCatching {
+                    val buffer = ByteArray(256)
+                    while (running && !udp.isClosed) {
+                        val packet = DatagramPacket(buffer, buffer.size)
+                        udp.receive(packet)
+                        val msg = String(packet.data, 0, packet.length, Charsets.UTF_8).trim()
+                        val parts = msg.split('|')
+                        if (parts.size >= 2 && parts[0] == "CHECK") {
+                            val requested = parts[1].trim()
+                            if (requested.equals(lobby.joinToken.trim(), ignoreCase = true) ||
+                                requested.equals(lobby.roomCode.trim(), ignoreCase = true) ||
+                                requested.equals(lobby.sessionId.trim(), ignoreCase = true)
+                            ) {
+                                val reply = "ROOM|${lobby.roomCode}".toByteArray(Charsets.UTF_8)
+                                udp.send(DatagramPacket(reply, reply.size, packet.address, packet.port))
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -278,6 +309,8 @@ class NearbyLanHost(
         running = false
         broadcastExecutor.shutdownNow()
         runCatching { server.close() }
+        runCatching { udpDiscoverySocket?.close() }
+        udpDiscoverySocket = null
         clientSockets.values.forEach { socket -> runCatching { socket.close() } }
         clientSockets.clear()
         clients.values.forEach { writer -> runCatching { writer.close() } }
@@ -445,7 +478,7 @@ suspend fun discoverHostByRoomCode(
 
     val priorityIps = listOfNotNull("127.0.0.1".takeIf { localIp == null || localIp == "127.0.0.1" }, localIp).distinct()
     for (ip in priorityIps) {
-        if (checkHost(ip, port, cleanCode, timeoutMs = 300)) {
+        if (checkHost(ip, port, cleanCode, timeoutMs = 400)) {
             return@withContext JoinPayload(
                 sessionId = cleanCode,
                 hostAddress = ip,
@@ -453,6 +486,15 @@ suspend fun discoverHostByRoomCode(
                 joinToken = cleanCode,
             )
         }
+    }
+
+    discoverHostViaUdp(cleanCode, localIp, port)?.let { foundIp ->
+        return@withContext JoinPayload(
+            sessionId = cleanCode,
+            hostAddress = foundIp,
+            port = port,
+            joinToken = cleanCode,
+        )
     }
 
     if (localIp != null && localIp.count { it == '.' } == 3) {
@@ -481,11 +523,11 @@ suspend fun discoverHostByRoomCode(
             }
         }
 
-        val chunkSize = 24
+        val chunkSize = 32
         for (chunk in candidateIps.chunked(chunkSize)) {
             val foundIp = chunk.map { ip ->
                 async {
-                    if (checkHost(ip, port, cleanCode, timeoutMs = 600)) ip else null
+                    if (checkHost(ip, port, cleanCode, timeoutMs = 1000)) ip else null
                 }
             }.awaitAll().firstOrNull { it != null }
 
@@ -502,6 +544,32 @@ suspend fun discoverHostByRoomCode(
 
     null
 }
+
+internal fun discoverHostViaUdp(roomCode: String, localIp: String?, port: Int, timeoutMs: Int = 450): String? = runCatching {
+    DatagramSocket().use { socket ->
+        socket.broadcast = true
+        socket.soTimeout = timeoutMs
+        val payload = "CHECK|$roomCode".toByteArray(Charsets.UTF_8)
+        val targets = buildList {
+            if (localIp == null || localIp == "127.0.0.1") add("127.0.0.1")
+            add("255.255.255.255")
+            if (localIp != null && localIp != "127.0.0.1" && localIp.count { it == '.' } == 3) {
+                add(localIp.substringBeforeLast('.') + ".255")
+            }
+        }.distinct()
+        targets.forEach { target ->
+            runCatching {
+                val addr = InetAddress.getByName(target)
+                socket.send(DatagramPacket(payload, payload.size, addr, port))
+            }
+        }
+        val buffer = ByteArray(128)
+        val reply = DatagramPacket(buffer, buffer.size)
+        socket.receive(reply)
+        val text = String(reply.data, 0, reply.length, Charsets.UTF_8).trim()
+        if (text == "ROOM|$roomCode") reply.address.hostAddress else null
+    }
+}.getOrNull()
 
 internal fun checkHost(ip: String, port: Int, roomCode: String, timeoutMs: Int = 600): Boolean = runCatching {
     Socket().use { socket ->
